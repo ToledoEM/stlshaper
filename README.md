@@ -84,6 +84,8 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
 
 *   This is a basic demonstration and can be extended with more advanced features.
 *   The performance of the deformation can depend on the complexity of the STL model and the chosen deformation algorithm.
+*   The rendering is slow
+*   Post-procesing is needed in meshlab: Filters -> Cleaning and Repairing ->> Remove Zero Area Faces, Remove Zero Area Faces, Repair Non-manifold Edges(split)
 
 ## Contributing
 
