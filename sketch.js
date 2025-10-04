@@ -307,28 +307,29 @@ let model;
 let cam;
 let customCamera; // Custom camera for projection
 let models = {
-  voronoi: null,
+  noise: null,
   sine: null,
   pixel: null
 };
 
-let currentModelKey = 'voronoi';
+let currentModelKey = 'noise';
 let processBtn;
 let statusElement;
 let exportBtn;
 let toggleView;
+let renderMode;
 
 // Deformation parameters
 let deformParams = {
   noise: {
     intensity: 15,
-    scale: 0.02
+    scale: 0.02,
+    axis: 'all'  // Adding axis control for noise
   },
   sine: {
     amplitude: 15,
     frequency: 0.05,
-    axis: 'x',
-    dualAxis: true
+    axis: 'x'
   },
   pixel: {
     size: 15,
@@ -378,6 +379,7 @@ function setup() {
   statusElement = document.getElementById('status');
   exportBtn = document.getElementById('exportBtn');
   toggleView = document.getElementById('toggleView');
+  renderMode = document.getElementById('renderMode');
 
   // Setup control panels visibility
   setupControlPanels();
@@ -457,7 +459,7 @@ function setupControlPanels() {
 
 function updateControlPanels() {
   document.getElementById('noiseControls').style.display = 
-    currentModelKey === 'voronoi' ? 'block' : 'none';
+    currentModelKey === 'noise' ? 'block' : 'none';
   document.getElementById('sineControls').style.display = 
     currentModelKey === 'sine' ? 'block' : 'none';
   document.getElementById('pixelControls').style.display = 
@@ -474,7 +476,7 @@ function setupParameterControls() {
   noiseIntensity.addEventListener('input', (e) => {
     deformParams.noise.intensity = parseFloat(e.target.value);
     noiseIntensityVal.textContent = e.target.value;
-    if (model && currentModelKey === 'voronoi') {
+    if (model && currentModelKey === 'noise') {
       generateAll();
     }
   });
@@ -482,10 +484,21 @@ function setupParameterControls() {
   noiseScale.addEventListener('input', (e) => {
     deformParams.noise.scale = parseFloat(e.target.value);
     noiseScaleVal.textContent = e.target.value;
-    if (model && currentModelKey === 'voronoi') {
+    if (model && currentModelKey === 'noise') {
       generateAll();
     }
   });
+  
+  // Noise axis control
+  const noiseAxis = document.getElementById('noiseAxis');
+  if (noiseAxis) {
+    noiseAxis.addEventListener('change', (e) => {
+      deformParams.noise.axis = e.target.value;
+      if (model && currentModelKey === 'noise') {
+        generateAll();
+      }
+    });
+  }
   
   // Sine wave controls
   const sineAmp = document.getElementById('sineAmp');
@@ -513,13 +526,6 @@ function setupParameterControls() {
   
   sineAxis.addEventListener('change', (e) => {
     deformParams.sine.axis = e.target.value;
-    if (model && currentModelKey === 'sine') {
-      generateAll();
-    }
-  });
-  
-  sineDualAxis.addEventListener('change', (e) => {
-    deformParams.sine.dualAxis = e.target.checked;
     if (model && currentModelKey === 'sine') {
       generateAll();
     }
@@ -557,7 +563,10 @@ function draw() {
   customCamera.lookat = lookat;
   customCamera.update_matrix();
   
-  orbitControl();
+  // Only allow orbit control when not interacting with UI
+  if (!isMouseOverUI()) {
+    orbitControl();
+  }
   ambientLight(100);
   pointLight(255, 255, 255, 200, 200, 200);
   
@@ -572,19 +581,28 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
 }
 
+function isMouseOverUI() {
+  const ui = document.getElementById('ui');
+  const rect = ui.getBoundingClientRect();
+  return mouseX >= rect.left && 
+         mouseX <= rect.right && 
+         mouseY >= rect.top && 
+         mouseY <= rect.bottom;
+}
+
 function parseSTL(arrayBuffer) {
   const loader = new THREE.STLLoader();
   const geometry = loader.parse(arrayBuffer);
   model = geometry.clone();
   model.computeBoundingBox();
   model.computeBoundingSphere();
-  models = { voronoi: null, sine: null, pixel: null };
+  models = { noise: null, sine: null, pixel: null };
   console.log("STL Loaded. Vertices:", model.attributes.position.count);
 }
 
 function generateAll() {
-  if (currentModelKey === 'voronoi') {
-    models.voronoi = voronoiShape(model.clone());
+  if (currentModelKey === 'noise') {
+    models.noise = voronoiShape(model.clone());
   } else if (currentModelKey === 'sine') {
     models.sine = sineWireShape(model.clone());
   } else if (currentModelKey === 'pixel') {
@@ -596,6 +614,7 @@ function drawModels() {
   const showDeformed = toggleView.checked;
   const originalModel = model;
   const activeModel = models[currentModelKey];
+  const mode = renderMode.value;
   
   let modelToDraw = showDeformed && activeModel ? activeModel : originalModel;
   
@@ -605,60 +624,57 @@ function drawModels() {
     const normals = modelToDraw.attributes.normal ? modelToDraw.attributes.normal.array : null;
     
     // Set colors based on which model is being viewed
-    if (modelToDraw === activeModel) {
-      stroke(255, 100, 100);
-      strokeWeight(1.5);
-    } else {
-      stroke(100, 150, 255);
-      strokeWeight(1);
+    let wireColor = modelToDraw === activeModel ? [255, 100, 100] : [100, 150, 255];
+    let fillColor = modelToDraw === activeModel ? [200, 80, 80] : [80, 120, 200];
+    
+    // Draw solid 3D model
+    if (mode === 'solid' || mode === 'both') {
+      fill(fillColor[0], fillColor[1], fillColor[2], 180);
+      stroke(fillColor[0] * 0.6, fillColor[1] * 0.6, fillColor[2] * 0.6);
+      strokeWeight(0.5);
+      
+      // Draw triangles as filled shapes
+      for (let i = 0; i < vertexCount; i += 3) {
+        let v0 = createVector(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+        let v1 = createVector(positions[(i + 1) * 3], positions[(i + 1) * 3 + 1], positions[(i + 1) * 3 + 2]);
+        let v2 = createVector(positions[(i + 2) * 3], positions[(i + 2) * 3 + 1], positions[(i + 2) * 3 + 2]);
+        
+        beginShape(TRIANGLES);
+        vertex(v0.x, v0.y, v0.z);
+        vertex(v1.x, v1.y, v1.z);
+        vertex(v2.x, v2.y, v2.z);
+        endShape();
+      }
     }
     
-    noFill();
-    
-    // Draw wireframe using custom camera projection
-    for (let i = 0; i < vertexCount; i += 3) {
-      // Get the three vertices of the triangle
-      let v0 = createVector(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-      let v1 = createVector(positions[(i + 1) * 3], positions[(i + 1) * 3 + 1], positions[(i + 1) * 3 + 2]);
-      let v2 = createVector(positions[(i + 2) * 3], positions[(i + 2) * 3 + 1], positions[(i + 2) * 3 + 2]);
+    // Draw wireframe
+    if (mode === 'wireframe' || mode === 'both') {
+      stroke(wireColor[0], wireColor[1], wireColor[2]);
+      strokeWeight(mode === 'both' ? 0.8 : 1.5);
+      noFill();
       
-      // Backface culling using custom camera
-      if (normals) {
-        let nx = normals[i * 3];
-        let ny = normals[i * 3 + 1];
-        let nz = normals[i * 3 + 2];
+      // Draw wireframe - show ALL edges, no culling
+      for (let i = 0; i < vertexCount; i += 3) {
+        let v0 = createVector(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
+        let v1 = createVector(positions[(i + 1) * 3], positions[(i + 1) * 3 + 1], positions[(i + 1) * 3 + 2]);
+        let v2 = createVector(positions[(i + 2) * 3], positions[(i + 2) * 3 + 1], positions[(i + 2) * 3 + 2]);
         
-        // Calculate view direction using camera w vector (eye direction)
-        let viewDir = customCamera.w.copy().mult(-1);
-        let normal = createVector(nx, ny, nz);
+        // Draw the three edges of the triangle
+        beginShape(LINES);
+        vertex(v0.x, v0.y, v0.z);
+        vertex(v1.x, v1.y, v1.z);
+        endShape();
         
-        // Skip back-facing triangles
-        if (viewDir.dot(normal) < 0) continue;
+        beginShape(LINES);
+        vertex(v1.x, v1.y, v1.z);
+        vertex(v2.x, v2.y, v2.z);
+        endShape();
+        
+        beginShape(LINES);
+        vertex(v2.x, v2.y, v2.z);
+        vertex(v0.x, v0.y, v0.z);
+        endShape();
       }
-      
-      // Project vertices using custom camera
-      let p0 = customCamera.project(v0);
-      let p1 = customCamera.project(v1);
-      let p2 = customCamera.project(v2);
-      
-      // Skip triangles behind camera
-      if (!p0 || !p1 || !p2) continue;
-      
-      // Draw the three edges of the triangle
-      beginShape(LINES);
-      vertex(v0.x, v0.y, v0.z);
-      vertex(v1.x, v1.y, v1.z);
-      endShape();
-      
-      beginShape(LINES);
-      vertex(v1.x, v1.y, v1.z);
-      vertex(v2.x, v2.y, v2.z);
-      endShape();
-      
-      beginShape(LINES);
-      vertex(v2.x, v2.y, v2.z);
-      vertex(v0.x, v0.y, v0.z);
-      endShape();
     }
   }
 }
@@ -696,6 +712,7 @@ function voronoiShape(geom) {
   
   const intensity = deformParams.noise.intensity;
   const scale = deformParams.noise.scale;
+  const axis = deformParams.noise.axis;
   
   // Use the actual loaded geometry
   const positionAttribute = geom.getAttribute('position');
@@ -718,8 +735,40 @@ function voronoiShape(geom) {
       let ny = y / len;
       let nz = z / len;
       
-      // Push vertices along their normal direction
-      positionAttribute.setXYZ(i, x + nx * offset, y + ny * offset, z + nz * offset);
+      // Apply deformation based on selected axis
+      let newX = x, newY = y, newZ = z;
+      
+      switch(axis) {
+        case 'x':
+          newX = x + nx * offset;
+          break;
+        case 'y':
+          newY = y + ny * offset;
+          break;
+        case 'z':
+          newZ = z + nz * offset;
+          break;
+        case 'xy':
+          newX = x + nx * offset;
+          newY = y + ny * offset;
+          break;
+        case 'xz':
+          newX = x + nx * offset;
+          newZ = z + nz * offset;
+          break;
+        case 'yz':
+          newY = y + ny * offset;
+          newZ = z + nz * offset;
+          break;
+        case 'all':
+        default:
+          newX = x + nx * offset;
+          newY = y + ny * offset;
+          newZ = z + nz * offset;
+          break;
+      }
+      
+      positionAttribute.setXYZ(i, newX, newY, newZ);
     }
   }
   
