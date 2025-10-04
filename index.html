@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>STL Deformer Demo</title>
+<style>
+  body{
+    margin:0;
+    background:#111;
+    color:#ccc;
+    font-family:Arial;
+    position: relative; 
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  #ui{
+    position:absolute;
+    top:10px;
+    left:10px;
+    background:#222;
+    padding:15px;
+    border-radius:4px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 250px;
+  }
+
+  #ui > * {
+      width: 100%;
+      box-sizing: border-box;
+  }
+  
+  #ui input[type=file]{
+    margin-bottom: 5px;
+  }
+
+  #ui label {
+    display: block;
+    margin: 3px 0;
+    cursor: pointer;
+    font-size: 0.9em;
+  }
+
+  .deform-controls {
+    background: #333;
+    padding: 8px;
+    border-radius: 3px;
+    margin: 5px 0;
+  }
+
+  .deform-controls label {
+    font-size: 0.85em;
+  }
+
+  .deform-controls input[type="range"] {
+    width: 100%;
+    margin: 3px 0;
+  }
+
+  .deform-controls select {
+    width: 100%;
+    padding: 4px;
+    background: #444;
+    color: #ccc;
+    border: 1px solid #555;
+    border-radius: 3px;
+  }
+
+  .deform-controls span {
+    float: right;
+    color: #6cf;
+    font-weight: bold;
+  }
+
+  #status {
+      height: 30px;
+      line-height: 30px;
+      padding: 0 5px;
+      background: #444;
+      border-radius: 3px;
+      text-align: center;
+      font-size: 0.9em;
+  }
+
+  button {
+      padding: 8px;
+      background: #555;
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+  }
+
+  button:hover:not(:disabled) {
+      background: #666;
+  }
+
+  button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+  }
+
+  canvas{
+    display:block;
+  }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="status">Ready to load STL.</div>
+
+  <input type="file" id="fileInput" accept=".stl">
+  
+  <div>
+    <strong>Deformation Type:</strong>
+    <label><input type="radio" name="type" value="voronoi" checked> Noise</label>
+    <label><input type="radio" name="type" value="sine"> Sine Wave</label>
+    <label><input type="radio" name="type" value="pixel"> Pixelate</label>
+  </div>
+
+  <!-- Noise/Voronoi Controls -->
+  <div id="noiseControls" class="deform-controls">
+    <strong>Noise Settings:</strong>
+    <label>
+      Intensity: <span id="noiseIntensityVal">15</span>
+      <input type="range" id="noiseIntensity" min="1" max="50" value="15" step="1">
+    </label>
+    <label>
+      Scale: <span id="noiseScaleVal">0.02</span>
+      <input type="range" id="noiseScale" min="0.005" max="0.1" value="0.02" step="0.005">
+    </label>
+  </div>
+
+  <!-- Sine Wave Controls -->
+  <div id="sineControls" class="deform-controls" style="display:none;">
+    <strong>Sine Wave Settings:</strong>
+    <label>
+      Amplitude: <span id="sineAmpVal">15</span>
+      <input type="range" id="sineAmp" min="5" max="50" value="15" step="1">
+    </label>
+    <label>
+      Frequency: <span id="sineFreqVal">0.05</span>
+      <input type="range" id="sineFreq" min="0.01" max="0.2" value="0.05" step="0.01">
+    </label>
+    <label>
+      Axis:
+      <select id="sineAxis">
+        <option value="x">X Axis</option>
+        <option value="y">Y Axis</option>
+        <option value="z">Z Axis</option>
+      </select>
+    </label>
+    <label>
+      <input type="checkbox" id="sineDualAxis" checked> Dual Axis Effect
+    </label>
+  </div>
+
+  <!-- Pixelate Controls -->
+  <div id="pixelControls" class="deform-controls" style="display:none;">
+    <strong>Pixelate Settings:</strong>
+    <label>
+      Voxel Size: <span id="pixelSizeVal">15</span>
+      <input type="range" id="pixelSize" min="5" max="40" value="15" step="1">
+    </label>
+    <label>
+      Axis Lock:
+      <select id="pixelAxis">
+        <option value="all">All Axes</option>
+        <option value="x">X Only</option>
+        <option value="y">Y Only</option>
+        <option value="z">Z Only</option>
+        <option value="xy">X & Y</option>
+        <option value="xz">X & Z</option>
+        <option value="yz">Y & Z</option>
+      </select>
+    </label>
+  </div>
+  
+  <button id="processBtn" disabled>Generate Deformation</button>
+
+  <div>
+      <strong>View Mode:</strong>
+      <label><input type="checkbox" id="toggleView" checked> Show Deformed Model</label>
+  </div>
+  
+  <button id="exportBtn" disabled>Export Current STL</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+<script src="sketch.js"></script>
+</body>
+</html>
