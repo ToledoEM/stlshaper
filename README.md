@@ -12,7 +12,7 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
 
 
 <p align="center">
-  <img src="img/STL_Deformer_Demo" alt="STL Deformer Demo" width="800"/>
+  <img src="img/STL_Deformer_Demo.png" alt="STL Deformer Demo" width="800"/>
 </p>
 
 ## Features
