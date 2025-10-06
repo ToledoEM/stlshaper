@@ -1,4 +1,5 @@
-// STLLoader implementation
+// --- STLLoader and STLExporter from THREE.js Examples (Preserved) ---
+
 THREE.STLLoader = class STLLoader {
   load(url, onLoad, onProgress, onError) {
     const loader = new THREE.FileLoader();
@@ -10,7 +11,6 @@ THREE.STLLoader = class STLLoader {
       onError,
     );
   }
-
   parse(data) {
     function isBinary(data) {
       const reader = new DataView(data);
@@ -22,7 +22,6 @@ THREE.STLLoader = class STLLoader {
       ? this.parseBinary(data)
       : this.parseASCII(this.ensureString(data));
   }
-
   parseBinary(data) {
     const reader = new DataView(data);
     const faces = reader.getUint32(80, true);
@@ -41,7 +40,7 @@ THREE.STLLoader = class STLLoader {
           reader.getFloat32(vStart + 4, true),
           reader.getFloat32(vStart + 8, true),
         );
-        normals.push(nx, ny, nz);
+        normals.push(nx, ny, nz, nx, ny, nz);
       }
     }
     geometry.setAttribute(
@@ -54,7 +53,6 @@ THREE.STLLoader = class STLLoader {
     );
     return geometry;
   }
-
   parseASCII(data) {
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
@@ -93,14 +91,12 @@ THREE.STLLoader = class STLLoader {
     );
     return geometry;
   }
-
   ensureString(buffer) {
     if (typeof buffer === "string") return buffer;
     return new TextDecoder().decode(buffer);
   }
 };
 
-// STLExporter implementation
 THREE.STLExporter = class STLExporter {
   parse(scene, options = {}) {
     const binary = options.binary !== undefined ? options.binary : false;
@@ -114,7 +110,6 @@ THREE.STLExporter = class STLExporter {
       return this.parseASCII(objects);
     }
   }
-
   parseASCII(objects) {
     let output = "solid exported\n";
     const v0 = new THREE.Vector3(),
@@ -147,7 +142,6 @@ THREE.STLExporter = class STLExporter {
     output += "endsolid exported\n";
     return output;
   }
-
   parseBinary(objects) {
     let triangles = 0;
     objects.forEach((obj) => {
@@ -204,57 +198,165 @@ THREE.STLExporter = class STLExporter {
   }
 };
 
-let model;
-let p5Model;
-let models = { noise: null, sine: null, pixel: null };
-let p5DeformedModels = { noise: null, sine: null, pixel: null };
+// --- Placeholder Noise Function (Required for "noiseShape" deformation) ---
+// NOTE: For true Perlin/Simplex noise quality, you should use a library like 'simplex-noise.js'
+// or another THREE.js compatible noise implementation instead of this basic placeholder.
+let noiseSeed = 0;
+function simpleHash(x, y, z) {
+  let h = 17 + 31 * noiseSeed;
+  h = (31 * h + x * 12345) % 100000;
+  h = (31 * h + y * 67890) % 100000;
+  h = (31 * h + z * 123) % 100000;
+  let s = Math.sin((h / 100000) * Math.PI * 2);
+  return s * 0.5 + 0.5; // Scale to 0-1
+}
+function noise(x, y, z) {
+  return simpleHash(Math.floor(x * 10), Math.floor(y * 10), Math.floor(z * 10));
+}
+
+// --- THREE.js Core Variables ---
+let scene, camera, renderer, controls;
+let container = document.getElementById("container");
+
+// Core model storage
+let originalGeometry;
+// deformedGeometries holds the *result* of the deformation process
+let deformedGeometries = { noise: null, sine: null, pixel: null };
 let currentModelKey = "noise";
+
+// UI elements and parameters
 let processBtn, statusElement, exportBtn, toggleView, renderMode;
+let meshGroup; // Group to hold the visible THREE.js meshes
+
 let deformParams = {
   noise: { intensity: 15, scale: 0.02, axis: "all" },
   sine: { amplitude: 15, frequency: 0.05, driverAxis: "x", dispAxis: "x" },
   pixel: { size: 15, axis: "all" },
 };
 
+// --- UI Logic and Handlers ---
+
 const statusDisplay = {
   update: (message, buttonState = true) => {
-    statusElement.textContent = message;
-    processBtn.disabled = buttonState;
-    exportBtn.disabled = !(model && models[currentModelKey]);
+    // buttonState: true disables the process button, false enables it
+    if (statusElement) {
+      statusElement.textContent = message;
+    }
+    // Process button is enabled ONLY if a file is loaded AND the function is not currently running
+    if (processBtn) processBtn.disabled = !(originalGeometry && !buttonState);
+
+    // Export button is enabled ONLY if a file is loaded AND a deformed geometry exists
+    if (exportBtn)
+      exportBtn.disabled = !(
+        originalGeometry && deformedGeometries[currentModelKey]
+      );
+
     if (message.includes("successfully")) {
       setTimeout(() => {
-        if (model && model.attributes && model.attributes.position) {
-          statusElement.textContent = `Ready: ${model.attributes.position.count} vertices loaded. Press 'Generate Deformation'.`;
-          processBtn.disabled = false;
+        if (
+          originalGeometry &&
+          originalGeometry.attributes &&
+          originalGeometry.attributes.position
+        ) {
+          if (statusElement)
+            statusElement.textContent = `Ready: ${originalGeometry.attributes.position.count} vertices loaded. Click 'Generate Deformation'.`;
         } else {
-          statusElement.textContent = "Ready to load STL.";
+          if (statusElement) statusElement.textContent = "Ready to load STL.";
         }
       }, 3000);
     }
   },
   error: (message) => {
-    statusElement.textContent = `Error: ${message}`;
-    processBtn.disabled = false;
-    exportBtn.disabled = true;
+    if (statusElement) statusElement.textContent = `Error: ${message}`;
+    if (processBtn) processBtn.disabled = true;
+    if (exportBtn) exportBtn.disabled = true;
   },
 };
-function setup() {
-  createCanvas(windowWidth, windowHeight, WEBGL);
 
-  createCamera();
-  camera(0, 0, 400);
+function init() {
+  container = document.getElementById("container");
+  const width = window.innerWidth;
+  const height = window.innerHeight;
 
-  const fileInput = document.getElementById("fileInput");
+  // --- CRITICAL FIX: Get UI elements first before any potential error calls ---
   processBtn = document.getElementById("processBtn");
   statusElement = document.getElementById("status");
   exportBtn = document.getElementById("exportBtn");
   toggleView = document.getElementById("toggleView");
   renderMode = document.getElementById("renderMode");
+  // --- END CRITICAL FIX ---
 
-  setupControlPanels();
+  // SCENE
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x1a1a1a);
+
+  // CAMERA
+  camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+  camera.position.set(0, 0, 200);
+
+  // RENDERER
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(width, height);
+  container.appendChild(renderer.domElement);
+
+  // CONTROLS FIX: Check for global OrbitControls or THREE.OrbitControls
+  const OrbitControlsClass = window.OrbitControls || THREE.OrbitControls;
+  if (!OrbitControlsClass) {
+    console.error(
+      "OrbitControls class not found. Ensure 'libraries/OrbitControls.js' is loaded correctly and is not an ES Module version.",
+    );
+    statusDisplay.error("3D Controls Error. Check console/file path.");
+    controls = null;
+  } else {
+    controls = new OrbitControlsClass(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.25;
+    controls.screenSpacePanning = false;
+    controls.minDistance = 10;
+    controls.maxDistance = 500;
+  }
+
+  // LIGHTING
+  const ambientLight = new THREE.AmbientLight(0x404040, 2);
+  scene.add(ambientLight);
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(200, 200, 200);
+  scene.add(directionalLight);
+  const pointLight = new THREE.PointLight(0xffffff, 1);
+  pointLight.position.set(-100, 100, 100);
+  scene.add(pointLight);
+
+  // MESH GROUP
+  meshGroup = new THREE.Group();
+  scene.add(meshGroup);
+
+  setupListeners();
+  setupControlPanels(); // This is correctly called here
   setupParameterControls();
 
-  fileInput.addEventListener("change", (e) => {
+  window.addEventListener("resize", onWindowResize, false);
+
+  animate();
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  // Removed continuous rotation for sine wave here
+  if (controls) {
+    controls.update();
+  }
+  renderer.render(scene, camera);
+}
+
+function setupListeners() {
+  // File Input
+  document.getElementById("fileInput").addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) {
       statusDisplay.update("Ready to load STL.");
@@ -265,10 +367,14 @@ function setup() {
     reader.onload = () => {
       try {
         parseSTL(reader.result);
+        // FIX: Only render the original model. Wait for button click for deformation.
+        updateSceneMeshes();
         statusDisplay.update(
-          `Model loaded: ${model.attributes.position.count} vertices. Press 'Generate Deformation'.`,
+          `Model loaded successfully. Click 'Generate Deformation'.`,
           false,
         );
+        // Export button remains disabled until deformation is performed
+        exportBtn.disabled = true;
       } catch (error) {
         console.error("Error:", error);
         statusDisplay.error(`File/Parse Error. Check console.`);
@@ -281,44 +387,47 @@ function setup() {
     reader.readAsArrayBuffer(file);
   });
 
+  // Deformation Type Radio
   document.querySelectorAll('input[name="type"]').forEach((radio) => {
     radio.addEventListener("change", (e) => {
       currentModelKey = e.target.value;
-      updateControlPanels();
-      if (model) {
-        statusDisplay.update(
-          `Configuration changed to ${currentModelKey}. Press 'Generate Deformation' to process.`,
-          false,
-        );
+      setupControlPanels(); // Correct function call for updating UI panel visibility
+      // FIX: If a deformed model already exists for this type, update the scene to show it.
+      if (originalGeometry) {
+        updateSceneMeshes();
       }
     });
   });
 
+  // Process Button - PRIMARY TRIGGER FOR DEFORMATION
   processBtn.onclick = () => {
-    if (!model) {
+    if (!originalGeometry) {
       statusDisplay.error("Please load an STL first.");
       return;
     }
     try {
-      statusDisplay.update(`Reprocessing ${currentModelKey} shape...`, true);
+      statusDisplay.update(`Generating ${currentModelKey} shape...`, true);
       generateCurrent();
+      updateSceneMeshes();
       statusDisplay.update(
-        `Reprocessed ${currentModelKey} shape successfully.`,
+        `Generated ${currentModelKey} shape successfully.`,
         false,
       );
     } catch (e) {
       console.error("Error:", e);
-      statusDisplay.error("Error reprocessing model.");
+      statusDisplay.error("Error generating deformation.");
     }
   };
+
+  // Export Button
   exportBtn.onclick = exportSTL;
+
+  // View Controls
+  toggleView.addEventListener("change", updateSceneMeshes);
+  renderMode.addEventListener("change", updateSceneMeshes);
 }
 
 function setupControlPanels() {
-  updateControlPanels();
-}
-
-function updateControlPanels() {
   document.getElementById("noiseControls").style.display =
     currentModelKey === "noise" ? "block" : "none";
   document.getElementById("sineControls").style.display =
@@ -328,290 +437,162 @@ function updateControlPanels() {
 }
 
 function setupParameterControls() {
-  const noiseIntensity = document.getElementById("noiseIntensity");
-  const noiseIntensityVal = document.getElementById("noiseIntensityVal");
-  const noiseScale = document.getElementById("noiseScale");
-  const noiseScaleVal = document.getElementById("noiseScaleVal");
+  // Parameter controls ONLY change the parameter value and label.
+  // They do NOT automatically trigger a re-generation.
+  const updateHandler = (key) => {
+    if (originalGeometry && currentModelKey === key) {
+      // Update UI/Status to tell the user to click the button
+      statusDisplay.update(
+        `Parameters updated. Click 'Generate Deformation' to apply.`,
+        false,
+      );
+    }
+  };
 
-  noiseIntensity.addEventListener("input", (e) => {
+  // NOISE CONTROLS
+  document.getElementById("noiseIntensity").addEventListener("input", (e) => {
     deformParams.noise.intensity = parseFloat(e.target.value);
-    noiseIntensityVal.textContent = e.target.value;
-    if (model)
-      statusDisplay.update(
-        `Parameters changed. Press 'Generate' to process.`,
-        false,
-      );
+    document.getElementById("noiseIntensityVal").textContent = e.target.value;
+    updateHandler("noise");
   });
-
-  noiseScale.addEventListener("input", (e) => {
+  document.getElementById("noiseScale").addEventListener("input", (e) => {
     deformParams.noise.scale = parseFloat(e.target.value);
-    noiseScaleVal.textContent = e.target.value;
-    if (model)
-      statusDisplay.update(
-        `Parameters changed. Press 'Generate' to process.`,
-        false,
-      );
+    document.getElementById("noiseScaleVal").textContent = e.target.value;
+    updateHandler("noise");
+  });
+  document.getElementById("noiseAxis").addEventListener("change", (e) => {
+    deformParams.noise.axis = e.target.value;
+    updateHandler("noise");
   });
 
-  const noiseAxis = document.getElementById("noiseAxis");
-  if (noiseAxis) {
-    noiseAxis.addEventListener("change", (e) => {
-      deformParams.noise.axis = e.target.value;
-      if (model)
-        statusDisplay.update(
-          `Parameters changed. Press 'Generate' to process.`,
-          false,
-        );
-    });
-  }
-
-  const sineAmp = document.getElementById("sineAmp");
-  const sineAmpVal = document.getElementById("sineAmpVal");
-  const sineFreq = document.getElementById("sineFreq");
-  const sineFreqVal = document.getElementById("sineFreqVal");
-  const sineDriverAxis = document.getElementById("sineDriverAxis");
-  const sineDispAxis = document.getElementById("sineDispAxis");
-
-  sineAmp.addEventListener("input", (e) => {
+  // SINE CONTROLS
+  document.getElementById("sineAmp").addEventListener("input", (e) => {
     deformParams.sine.amplitude = parseFloat(e.target.value);
-    sineAmpVal.textContent = e.target.value;
-    if (model)
-      statusDisplay.update(
-        `Parameters changed. Press 'Generate' to process.`,
-        false,
-      );
+    document.getElementById("sineAmpVal").textContent = e.target.value;
+    updateHandler("sine");
   });
-
-  sineFreq.addEventListener("input", (e) => {
+  document.getElementById("sineFreq").addEventListener("input", (e) => {
     deformParams.sine.frequency = parseFloat(e.target.value);
-    sineFreqVal.textContent = e.target.value;
-    if (model)
-      statusDisplay.update(
-        `Parameters changed. Press 'Generate' to process.`,
-        false,
-      );
+    document.getElementById("sineFreqVal").textContent = e.target.value;
+    updateHandler("sine");
   });
-
-  sineDriverAxis.addEventListener("change", (e) => {
+  document.getElementById("sineDriverAxis").addEventListener("change", (e) => {
     deformParams.sine.driverAxis = e.target.value;
-    if (model)
-      statusDisplay.update(
-        `Parameters changed. Press 'Generate' to process.`,
-        false,
-      );
+    updateHandler("sine");
   });
-
-  sineDispAxis.addEventListener("change", (e) => {
+  document.getElementById("sineDispAxis").addEventListener("change", (e) => {
     deformParams.sine.dispAxis = e.target.value;
-    if (model)
-      statusDisplay.update(
-        `Parameters changed. Press 'Generate' to process.`,
-        false,
-      );
+    updateHandler("sine");
   });
 
-  const pixelSize = document.getElementById("pixelSize");
-  const pixelSizeVal = document.getElementById("pixelSizeVal");
-  const pixelAxis = document.getElementById("pixelAxis");
-
-  pixelSize.addEventListener("input", (e) => {
+  // PIXEL CONTROLS
+  document.getElementById("pixelSize").addEventListener("input", (e) => {
     deformParams.pixel.size = parseFloat(e.target.value);
-    pixelSizeVal.textContent = e.target.value;
-    if (model)
-      statusDisplay.update(
-        `Parameters changed. Press 'Generate' to process.`,
-        false,
-      );
+    document.getElementById("pixelSizeVal").textContent = e.target.value;
+    updateHandler("pixel");
   });
-
-  pixelAxis.addEventListener("change", (e) => {
+  document.getElementById("pixelAxis").addEventListener("change", (e) => {
     deformParams.pixel.axis = e.target.value;
-    if (model)
-      statusDisplay.update(
-        `Parameters changed. Press 'Generate' to process.`,
-        false,
-      );
+    updateHandler("pixel");
   });
-}
-
-function draw() {
-  background(20);
-
-  if (!isMouseOverUI()) orbitControl();
-
-  ambientLight(100);
-  pointLight(255, 255, 255, 200, 200, 200);
-
-  drawModels();
-
-  if (currentModelKey === "sine") rotateY(frameCount * 0.005);
-}
-
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-}
-
-function isMouseOverUI() {
-  const ui = document.getElementById("ui");
-  const rect = ui.getBoundingClientRect();
-  return (
-    mouseX >= rect.left &&
-    mouseX <= rect.right &&
-    mouseY >= rect.top &&
-    mouseY <= rect.bottom
-  );
-}
-
-function geometryToP5Model(geometry) {
-  if (!geometry.attributes.position || !geometry.attributes.normal) {
-    console.error("Geometry missing position or normal attributes.");
-    return null;
-  }
-
-  // p5.Geometry is primarily for solid rendering using model()
-  const p5Geom = new p5.Geometry();
-  const posArray = geometry.attributes.position.array;
-  const normArray = geometry.attributes.normal.array;
-  const vertexCount = geometry.attributes.position.count;
-
-  for (let i = 0; i < vertexCount; i++) {
-    p5Geom.vertices.push(
-      createVector(posArray[i * 3], posArray[i * 3 + 1], posArray[i * 3 + 2]),
-    );
-    p5Geom.vertexNormals.push(
-      createVector(
-        normArray[i * 3],
-        normArray[i * 3 + 1],
-        normArray[i * 3 + 2],
-      ),
-    );
-  }
-
-  // Faces (indices) are still needed for p5.Geometry.
-  // Since STL is non-indexed (every 3 vertices form a triangle), we use sequential indices.
-  for (let i = 0; i < vertexCount / 3; i++) {
-    p5Geom.faces.push([i * 3, i * 3 + 1, i * 3 + 2]);
-  }
-
-  // This is the crucial part that lets p5.js render it using WebGL buffers
-  p5Geom.initColors();
-  p5Geom.initTextures();
-  p5Geom.initBuffers(this._renderer); // We need a reference to the renderer to initialize buffers,
-  // but since we are not in a class, we assume the global p5 context manages it.
-  // In p5.js, the 'model()' function handles the WebGL buffer upload implicitly.
-  // We will just return the object, and let model() handle the rest.
-
-  return p5Geom;
 }
 
 function parseSTL(arrayBuffer) {
   const loader = new THREE.STLLoader();
-  const geometry = loader.parse(arrayBuffer);
+  originalGeometry = loader.parse(arrayBuffer);
 
-  model = geometry.clone();
-  model.computeBoundingBox();
-  model.computeBoundingSphere();
+  originalGeometry.computeBoundingBox();
+  // FIX: Center the geometry so it sits at the world origin (0,0,0)
+  originalGeometry.center();
 
-  p5Model = geometryToP5Model(model);
-
-  models = { noise: null, sine: null, pixel: null };
-  p5DeformedModels = { noise: null, sine: null, pixel: null };
-  console.log("STL Loaded. Vertices:", model.attributes.position.count);
+  originalGeometry.computeBoundingSphere();
+  // Clear any old deformed models when a new file is loaded
+  deformedGeometries = { noise: null, sine: null, pixel: null };
+  console.log(
+    "STL Loaded. Vertices:",
+    originalGeometry.attributes.position.count,
+  );
 }
 
 function generateCurrent() {
-  if (!model) return;
+  if (!originalGeometry) return;
+  // Clone the original geometry for modification.
+  // It is essential to use a clone of the centered geometry.
+  const original = originalGeometry.clone();
 
-  let newGeometry;
   if (currentModelKey === "noise") {
-    newGeometry = noiseShape(model.clone());
+    deformedGeometries.noise = noiseShape(original);
   } else if (currentModelKey === "sine") {
-    newGeometry = sineDeformShape(model.clone());
+    deformedGeometries.sine = sineDeformShape(original);
   } else if (currentModelKey === "pixel") {
-    newGeometry = pixelateShape(model.clone());
+    deformedGeometries.pixel = pixelateShape(original);
   }
-
-  models[currentModelKey] = newGeometry;
-  p5DeformedModels[currentModelKey] = geometryToP5Model(newGeometry);
 }
 
-function drawModels() {
-  const showDeformed = toggleView.checked;
-  const activeModel = models[currentModelKey];
-  const originalModelPositions = model ? model.attributes.position.array : null;
-  const activeModelPositions = activeModel
-    ? activeModel.attributes.position.array
-    : null;
-
-  const positionsToDraw =
-    showDeformed && activeModelPositions
-      ? activeModelPositions
-      : originalModelPositions;
-
-  if (!positionsToDraw) return;
-
-  const mode = renderMode.value;
-  const vertexCount = positionsToDraw.length / 3;
-
-  let wireColor =
-    positionsToDraw === activeModelPositions
-      ? [255, 100, 100]
-      : [100, 150, 255];
-  let fillColor =
-    positionsToDraw === activeModelPositions ? [200, 80, 80] : [80, 120, 200];
-
-  // RENDER SOLID (using optimized p5.js model function)
-  if (mode === "solid" || mode === "both") {
-    const modelToDraw =
-      positionsToDraw === activeModelPositions
-        ? p5DeformedModels[currentModelKey]
-        : p5Model;
-
-    if (modelToDraw) {
-      fill(fillColor[0], fillColor[1], fillColor[2], 255);
-      noStroke();
-      model(modelToDraw);
-    }
+// --- THREE.js Rendering Logic ---
+function updateSceneMeshes() {
+  // Clears the mesh group using compatibility loop
+  while (meshGroup.children.length > 0) {
+    meshGroup.remove(meshGroup.children[0]);
   }
 
-  // RENDER WIREFRAME/EDGES (using manual shape for proper line control)
+  // Determine which geometry to show
+  const showDeformed = toggleView.checked;
+  const deformedExists = deformedGeometries[currentModelKey];
+
+  // Show original if no deformed model exists or if toggle is off
+  let geometryToDraw = originalGeometry;
+  if (showDeformed && deformedExists) {
+    geometryToDraw = deformedExists;
+  }
+
+  if (!geometryToDraw) return;
+
+  const mode = renderMode.value;
+  const isDeformed = geometryToDraw === deformedExists;
+
+  const solidColor = isDeformed ? 0xcc5050 : 0x5078c8;
+  const wireColor = isDeformed ? 0xff6464 : 0x6496ff;
+
+  // Auto-fit to view
+  geometryToDraw.computeBoundingSphere();
+  const radius = geometryToDraw.boundingSphere.radius;
+  camera.position.set(0, 0, radius * 2.5);
+  if (controls) {
+    controls.target.set(0, 0, 0);
+    controls.update();
+  }
+
+  // SOLID MESH
+  if (mode === "solid" || mode === "both") {
+    const material = new THREE.MeshPhongMaterial({
+      color: solidColor,
+      shininess: 30,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(geometryToDraw, material);
+    meshGroup.add(mesh);
+  }
+
+  // WIREFRAME MESH (Draws on top for 'both' mode)
   if (mode === "wireframe" || mode === "both") {
-    stroke(wireColor[0], wireColor[1], wireColor[2]);
-    strokeWeight(mode === "both" ? 0.8 : 1.5);
-    noFill();
-
-    // Manual loop for wireframe/lines only - this is much faster than the manual TRIANGLES loop
-    beginShape(LINES);
-    for (let i = 0; i < vertexCount / 3; i++) {
-      let idx = i * 9;
-      let v0x = positionsToDraw[idx],
-        v0y = positionsToDraw[idx + 1],
-        v0z = positionsToDraw[idx + 2];
-      let v1x = positionsToDraw[idx + 3],
-        v1y = positionsToDraw[idx + 4],
-        v1z = positionsToDraw[idx + 5];
-      let v2x = positionsToDraw[idx + 6],
-        v2y = positionsToDraw[idx + 7],
-        v2z = positionsToDraw[idx + 8];
-
-      // Draw 3 lines per triangle
-      vertex(v0x, v0y, v0z);
-      vertex(v1x, v1y, v1z);
-      vertex(v1x, v1y, v1z);
-      vertex(v2x, v2y, v2z);
-      vertex(v2x, v2y, v2z);
-      vertex(v0x, v0y, v0z);
-    }
-    endShape();
+    const material = new THREE.MeshBasicMaterial({
+      color: wireColor,
+      wireframe: true,
+      transparent: true,
+      opacity: mode === "both" ? 0.8 : 1.0,
+    });
+    const mesh = new THREE.Mesh(geometryToDraw, material);
+    meshGroup.add(mesh);
   }
 }
 
 function exportSTL() {
-  const activeModel = models[currentModelKey];
+  const activeModel = deformedGeometries[currentModelKey];
   if (!activeModel) {
-    statusDisplay.error(
-      "No deformed model generated to export. Press 'Generate Deformation' first.",
-    );
+    statusDisplay.error("No deformed model generated to export.");
     return;
   }
   statusDisplay.update(`Exporting ${currentModelKey} model...`, true);
@@ -621,8 +602,10 @@ function exportSTL() {
     scene.add(mesh);
     const exporter = new THREE.STLExporter();
     const stlString = exporter.parse(scene, { binary: false });
+
     const blob = new Blob([stlString], { type: "text/plain" });
     saveAs(blob, `${currentModelKey}_deformed.stl`);
+
     statusDisplay.update(
       `Export successful! ${currentModelKey}_deformed.stl`,
       false,
@@ -633,11 +616,14 @@ function exportSTL() {
   }
 }
 
+// --- Deformation Logic (Relies on pure THREE.js BufferGeometry functions) ---
+
 function noiseShape(geom) {
-  console.log("Generating Noise deformation...");
   geom.computeBoundingBox();
   const bbox = geom.boundingBox;
   const center = new THREE.Vector3();
+  // We use the center of the geometry's bounding box to calculate normalized displacement vectors
+  // This helps ensure the deformation is relative to the object's shape, not world coordinates.
   bbox.getCenter(center);
   const intensity = deformParams.noise.intensity;
   const scale = deformParams.noise.scale;
@@ -647,24 +633,32 @@ function noiseShape(geom) {
     const x = positionAttribute.getX(i);
     const y = positionAttribute.getY(i);
     const z = positionAttribute.getZ(i);
+
+    // Calculate vector from the model's center to the vertex
     const cx = x - center.x;
     const cy = y - center.y;
     const cz = z - center.z;
+
     const len = Math.hypot(cx, cy, cz) || 1;
     const rx = cx / len;
     const ry = cy / len;
     const rz = cz / len;
+
+    // Noise value is calculated based on scaled coordinates relative to the object's center
     const noiseValue = noise(cx * scale, cy * scale, cz * scale);
-    const offset = (noiseValue - 0.5) * 2 * intensity;
+    const offset = (noiseValue - 0.5) * 2 * intensity; // Scale noise to (-intensity, +intensity)
+
     let ox = rx * offset;
     let oy = ry * offset;
     let oz = rz * offset;
+
     const allowX = axisMode.includes("x") || axisMode === "all";
     const allowY = axisMode.includes("y") || axisMode === "all";
     const allowZ = axisMode.includes("z") || axisMode === "all";
     if (!allowX) ox = 0;
     if (!allowY) oy = 0;
     if (!allowZ) oz = 0;
+
     positionAttribute.setXYZ(i, x + ox, y + oy, z + oz);
   }
   positionAttribute.needsUpdate = true;
@@ -675,7 +669,6 @@ function noiseShape(geom) {
 }
 
 function sineDeformShape(geom) {
-  console.log("Generating Sine Deformation...");
   const A = deformParams.sine.amplitude;
   const f = deformParams.sine.frequency;
   const driverAxis = deformParams.sine.driverAxis;
@@ -701,7 +694,6 @@ function sineDeformShape(geom) {
 }
 
 function pixelateShape(geom) {
-  console.log("Generating Pixelate Shape...");
   const pixelSize = deformParams.pixel.size;
   const axisMode = deformParams.pixel.axis;
   const positionAttribute = geom.getAttribute("position");
@@ -766,3 +758,6 @@ function pixelateShape(geom) {
   geom.computeBoundingSphere();
   return geom;
 }
+
+// Start the application
+window.onload = init;

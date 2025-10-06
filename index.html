@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <title>STL Deformer</title>
+        <title>STL Deformer (THREE.js)</title>
         <style>
             body {
                 margin: 0;
@@ -103,8 +103,13 @@
                 cursor: not-allowed;
             }
 
-            canvas {
-                display: block;
+            #container {
+                width: 100%;
+                height: 100%;
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 1;
             }
         </style>
     </head>
@@ -261,7 +266,7 @@
                     Render Mode:
                     <select id="renderMode">
                         <option value="wireframe">Wireframe</option>
-                        <option value="solid">Solid 3D</option>
+                        <option value="solid" selected>Solid 3D</option>
                         <option value="both">Wireframe + Solid</option>
                     </select>
                 </label>
@@ -270,19 +275,13 @@
             <button id="exportBtn" disabled>Export Current STL</button>
         </div>
 
-<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r121/three.min.js"></script>
+        <div id="container"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/three-orbitcontrols@1.2.1/OrbitControls.min.js"></script>
+        <script src="libraries/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r108/examples/js/controls/OrbitControls.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/stl-loader@1.0.0/STLLoader.min.js"></script>
+        <script src="libraries/FileSaver.min.js"></script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script> -->
-
-<script src="libraries/three.min.js"></script>
-<script src="libraries/p5.min.js"></script>
-<script src="libraries/FileSaver.min.js"></script>
-
-<script src="sketch.js"></script>
+        <script src="main.js"></script>
     </body>
 </html>
