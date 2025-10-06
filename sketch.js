@@ -1,106 +1,3 @@
-// Custom perspective camera implementation
-// Derived from https://github.com/osresearch/papercraft/blob/master/camera.c
-
-function m44_mult(a,b)
-{
-	let c = [
-		[0,0,0,0],
-		[0,0,0,0],
-		[0,0,0,0],
-		[0,0,0,0],
-	];
-	for(let i = 0 ; i < 4 ; i++)
-		for(let j = 0 ; j < 4 ; j++)
-			for(let k = 0 ; k < 4 ; k++)
-				c[i][j] += a[i][k] * b[k][j];
-
-	return c;
-}
-
-function Camera(eye,lookat,up,fov)
-{
-	this.eye = eye;
-	this.lookat = lookat;
-	this.up = up;
-	this.fov = fov;
-	this.generation = 0;
-	this.width = width;
-	this.height = height;
-
-	// project a point from model space to camera space
-	this.project = function(v_in,v_out=null)
-	{
-		let v = [v_in.x, v_in.y, v_in.z, 1];
-		let p = [0,0,0,0];
-
-		for(let i = 0 ; i < 4 ; i++)
-			for(let j = 0 ; j < 4 ; j++)
-				p[i] += this.matrix[i][j] * v[j];
-
-		// if the projected point has negative z, this means
-		// it is behind us and can be discarded
-		if (p[2] <= 0)
-			return;
-
-		let x = p[0] / p[3];
-		let y = p[1] / p[3];
-		let z = p[2] / p[3];
-
-		if (!v_out)
-			return createVector(x,y,z);
-
-		// update in place to avoid an allocation
-		v_out.x = x;
-		v_out.y = y;
-		v_out.z = z;
-		return v_out;
-	}
-
-	// Update the camera projection matrix with eye/lookat/fov
-	this.update_matrix = function()
-	{
-		// compute the three basis vectors for the camera
-
-		// w is the Z axis from the eye to the destination point
-		let w = p5.Vector.sub(this.eye, this.lookat).normalize();
-
-		// u is the X axis to the right side of the camera
-		let u = this.up.cross(w).normalize();
-
-		// v is the Y axis aligned with the UP axis
-		let v = w.cross(u).normalize();
-
-		let cam = [
-			[ u.x, u.y, u.z, -u.dot(this.eye) ],
-			[ v.x, v.y, v.z, -v.dot(this.eye) ],
-			[ w.x, w.y, w.z, -w.dot(this.eye) ],
-			[ 0,   0,   0,   1 ],
-		];
-
-		let scale = 1000.0 / tan(this.fov * PI / 180 / 2);
-		let near = 1;
-		let far = 10000;
-		let f1 = - far / (far - near);
-		let f2 = - far * near / (far - near);
-
-		let perspective = [
-			[ scale, 0, 0, 0 ],
-			[ 0, scale, 0, 0 ],
-			[ 0, 0, f2, -1 ],
-			[ 0, 0, f1,  0 ],
-		];
-
-		this.matrix = m44_mult(perspective, cam);
-		this.u = u;
-		this.v = v;
-		this.w = w;
-
-		this.generation++;
-	}
-
-	this.update_matrix();
-}
-
 // STLLoader implementation
 THREE.STLLoader = class STLLoader {
   load(url, onLoad, onProgress, onError) {
@@ -116,7 +13,6 @@ THREE.STLLoader = class STLLoader {
       const expectedSize = 84 + numFaces * 50;
       return data.byteLength === expectedSize;
     }
-
     return isBinary(data) ? this.parseBinary(data) : this.parseASCII(this.ensureString(data));
   }
 
@@ -126,13 +22,11 @@ THREE.STLLoader = class STLLoader {
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
     const normals = [];
-
     for (let face = 0; face < faces; face++) {
       const start = 84 + face * 50;
       const nx = reader.getFloat32(start, true);
       const ny = reader.getFloat32(start + 4, true);
       const nz = reader.getFloat32(start + 8, true);
-
       for (let i = 0; i < 3; i++) {
         const vStart = start + 12 + i * 12;
         vertices.push(
@@ -143,7 +37,6 @@ THREE.STLLoader = class STLLoader {
         normals.push(nx, ny, nz);
       }
     }
-
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     return geometry;
@@ -153,30 +46,24 @@ THREE.STLLoader = class STLLoader {
     const geometry = new THREE.BufferGeometry();
     const vertices = [];
     const normals = [];
-    const patternNormal = /normal\s+([\d\.\+\-eE]+)\s+([\d\.\+\-eE]+)\s+([\d\.\+\-eE]+)/g;
-    const patternVertex = /vertex\s+([\d\.\+\-eE]+)\s+([\d\.\+\-eE]+)\s+([\d\.\+\-eE]+)/g;
-    
-    let normalMatch, vertexMatch;
-    let currentNormal = [0, 0, 0];
-
-    while ((normalMatch = patternNormal.exec(data)) !== null) {
-      currentNormal = [parseFloat(normalMatch[1]), parseFloat(normalMatch[2]), parseFloat(normalMatch[3])];
-    }
-
-    patternNormal.lastIndex = 0;
-
-    while ((vertexMatch = patternVertex.exec(data)) !== null) {
-      vertices.push(parseFloat(vertexMatch[1]), parseFloat(vertexMatch[2]), parseFloat(vertexMatch[3]));
-      normals.push(currentNormal[0], currentNormal[1], currentNormal[2]);
-      
-      if (vertices.length % 9 === 0) {
-        const nextNormal = patternNormal.exec(data);
-        if (nextNormal) {
-          currentNormal = [parseFloat(nextNormal[1]), parseFloat(nextNormal[2]), parseFloat(nextNormal[3])];
-        }
+    const facetPattern = /facet\s+normal\s+([+\-\deE\.]+)\s+([+\-\deE\.]+)\s+([+\-\deE\.]+)\s+outer loop([\s\S]*?)endloop\s+endfacet/g;
+    const vertexPattern = /vertex\s+([+\-\deE\.]+)\s+([+\-\deE\.]+)\s+([+\-\deE\.]+)/g;
+    let facetMatch;
+    while ((facetMatch = facetPattern.exec(data)) !== null) {
+      const nx = parseFloat(facetMatch[1]);
+      const ny = parseFloat(facetMatch[2]);
+      const nz = parseFloat(facetMatch[3]);
+      const loopBlock = facetMatch[4];
+      let vMatch;
+      let localVerts = [];
+      while ((vMatch = vertexPattern.exec(loopBlock)) !== null) {
+        localVerts.push(parseFloat(vMatch[1]), parseFloat(vMatch[2]), parseFloat(vMatch[3]));
+      }
+      if (localVerts.length === 9) {
+        vertices.push(...localVerts);
+        normals.push(nx, ny, nz, nx, ny, nz, nx, ny, nz);
       }
     }
-
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
     return geometry;
@@ -193,11 +80,9 @@ THREE.STLExporter = class STLExporter {
   parse(scene, options = {}) {
     const binary = options.binary !== undefined ? options.binary : false;
     const objects = [];
-    
     scene.traverse(obj => {
       if (obj.isMesh) objects.push(obj);
     });
-
     if (binary) {
       return this.parseBinary(objects);
     } else {
@@ -207,40 +92,29 @@ THREE.STLExporter = class STLExporter {
 
   parseASCII(objects) {
     let output = 'solid exported\n';
-    
+    const v0 = new THREE.Vector3(), v1 = new THREE.Vector3(), v2 = new THREE.Vector3();
+    const e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), n = new THREE.Vector3();
     objects.forEach(obj => {
       const geometry = obj.geometry;
       const matrixWorld = obj.matrixWorld;
-      
-      if (geometry.isBufferGeometry) {
-        const positions = geometry.getAttribute('position');
-        const normals = geometry.getAttribute('normal');
-        
-        for (let i = 0; i < positions.count; i += 3) {
-          const n = new THREE.Vector3();
-          if (normals) {
-            n.fromBufferAttribute(normals, i);
-          } else {
-            n.set(0, 0, 1);
-          }
-          n.applyMatrix3(new THREE.Matrix3().getNormalMatrix(matrixWorld)).normalize();
-          
-          output += `  facet normal ${n.x} ${n.y} ${n.z}\n`;
-          output += '    outer loop\n';
-          
-          for (let j = 0; j < 3; j++) {
-            const v = new THREE.Vector3();
-            v.fromBufferAttribute(positions, i + j);
-            v.applyMatrix4(matrixWorld);
-            output += `      vertex ${v.x} ${v.y} ${v.z}\n`;
-          }
-          
-          output += '    endloop\n';
-          output += '  endfacet\n';
-        }
+      if (!geometry.isBufferGeometry) return;
+      const pos = geometry.getAttribute('position');
+      for (let i = 0; i < pos.count; i += 3) {
+        v0.fromBufferAttribute(pos, i).applyMatrix4(matrixWorld);
+        v1.fromBufferAttribute(pos, i + 1).applyMatrix4(matrixWorld);
+        v2.fromBufferAttribute(pos, i + 2).applyMatrix4(matrixWorld);
+        e1.subVectors(v1, v0);
+        e2.subVectors(v2, v0);
+        n.crossVectors(e1, e2).normalize();
+        output += `  facet normal ${n.x} ${n.y} ${n.z}\n`;
+        output += '    outer loop\n';
+        output += `      vertex ${v0.x} ${v0.y} ${v0.z}\n`;
+        output += `      vertex ${v1.x} ${v1.y} ${v1.z}\n`;
+        output += `      vertex ${v2.x} ${v2.y} ${v2.z}\n`;
+        output += '    endloop\n';
+        output += '  endfacet\n';
       }
     });
-    
     output += 'endsolid exported\n';
     return output;
   }
@@ -253,24 +127,18 @@ THREE.STLExporter = class STLExporter {
         triangles += geometry.getAttribute('position').count / 3;
       }
     });
-
     const offset = 80;
     const bufferLength = triangles * 50 + offset + 4;
     const arrayBuffer = new ArrayBuffer(bufferLength);
     const output = new DataView(arrayBuffer);
-    
     output.setUint32(offset, triangles, true);
-    
     let index = offset + 4;
-    
     objects.forEach(obj => {
       const geometry = obj.geometry;
       const matrixWorld = obj.matrixWorld;
-      
       if (geometry.isBufferGeometry) {
         const positions = geometry.getAttribute('position');
         const normals = geometry.getAttribute('normal');
-        
         for (let i = 0; i < positions.count; i += 3) {
           const n = new THREE.Vector3();
           if (normals) {
@@ -279,11 +147,9 @@ THREE.STLExporter = class STLExporter {
             n.set(0, 0, 1);
           }
           n.applyMatrix3(new THREE.Matrix3().getNormalMatrix(matrixWorld)).normalize();
-          
           output.setFloat32(index, n.x, true); index += 4;
           output.setFloat32(index, n.y, true); index += 4;
           output.setFloat32(index, n.z, true); index += 4;
-          
           for (let j = 0; j < 3; j++) {
             const v = new THREE.Vector3();
             v.fromBufferAttribute(positions, i + j);
@@ -292,61 +158,35 @@ THREE.STLExporter = class STLExporter {
             output.setFloat32(index, v.y, true); index += 4;
             output.setFloat32(index, v.z, true); index += 4;
           }
-          
           output.setUint16(index, 0, true); index += 2;
         }
       }
     });
-    
     return arrayBuffer;
   }
 };
 
-// Main application code
 let model;
 let cam;
-let customCamera; // Custom camera for projection
-let models = {
-  noise: null,
-  sine: null,
-  pixel: null
-};
-
+let models = {noise: null, sine: null, pixel: null};
 let currentModelKey = 'noise';
-let processBtn;
-let statusElement;
-let exportBtn;
-let toggleView;
-let renderMode;
-
-// Deformation parameters
+let processBtn, statusElement, exportBtn, toggleView, renderMode;
 let deformParams = {
-  noise: {
-    intensity: 15,
-    scale: 0.02,
-    axis: 'all'  // Adding axis control for noise
-  },
-  sine: {
-    amplitude: 15,
-    frequency: 0.05,
-    axis: 'x'
-  },
-  pixel: {
-    size: 15,
-    axis: 'all'
-  }
+  noise: {intensity: 15, scale: 0.02, axis: 'all'},
+  sine: {amplitude: 15, frequency: 0.05, driverAxis: 'x', dispAxis: 'x'},
+  pixel: {size: 15, axis: 'all'}
 };
 
 const statusDisplay = {
   update: (message, buttonState = true) => {
     statusElement.textContent = message;
     processBtn.disabled = buttonState;
-    exportBtn.disabled = !(model && !buttonState && models[currentModelKey]);
-    
+    exportBtn.disabled = !(model && models[currentModelKey]); 
     if (message.includes("successfully")) {
       setTimeout(() => {
         if (model && model.attributes && model.attributes.position) {
-          statusElement.textContent = `Ready: ${model.attributes.position.count} vertices loaded.`;
+          statusElement.textContent = `Ready: ${model.attributes.position.count} vertices loaded. Press 'Generate Deformation'.`;
+          processBtn.disabled = false;
         } else {
           statusElement.textContent = "Ready to load STL.";
         }
@@ -359,21 +199,12 @@ const statusDisplay = {
     exportBtn.disabled = true;
   }
 };
-
 function setup() {
   createCanvas(windowWidth, windowHeight, WEBGL);
   
-  cam = createCamera();
-  cam.setPosition(0, 0, 400);
-  
-  // Initialize custom camera
-  customCamera = new Camera(
-    createVector(0, 0, 400),  // eye
-    createVector(0, 0, 0),    // lookat
-    createVector(0, 1, 0),    // up
-    60                         // fov
-  );
-  
+  cam = createCamera(); 
+  cam.setPosition(0, 0, 400); 
+
   const fileInput = document.getElementById('fileInput');
   processBtn = document.getElementById('processBtn');
   statusElement = document.getElementById('status');
@@ -381,10 +212,7 @@ function setup() {
   toggleView = document.getElementById('toggleView');
   renderMode = document.getElementById('renderMode');
 
-  // Setup control panels visibility
   setupControlPanels();
-  
-  // Setup parameter change listeners
   setupParameterControls();
 
   fileInput.addEventListener('change', e => {
@@ -393,28 +221,21 @@ function setup() {
       statusDisplay.update('Ready to load STL.');
       return;
     }
-    
     statusDisplay.update(`Loading file: ${file.name}...`, true);
     const reader = new FileReader();
-    
     reader.onload = () => {
       try {
         parseSTL(reader.result);
-        statusDisplay.update('File parsed. Starting deformation...', true);
-        generateAll();
-        statusDisplay.update(`Model loaded and generated successfully.`, false);
-        exportBtn.disabled = false;
+        statusDisplay.update(`Model loaded: ${model.attributes.position.count} vertices. Press 'Generate Deformation'.`, false);
       } catch (error) {
         console.error("Error:", error);
         statusDisplay.error(`File/Parse Error. Check console.`);
       }
     };
-    
     reader.onerror = (e) => {
       console.error("FileReader error:", e);
       statusDisplay.error(`Could not read file.`);
     };
-    
     reader.readAsArrayBuffer(file);
   });
 
@@ -423,14 +244,7 @@ function setup() {
       currentModelKey = e.target.value;
       updateControlPanels();
       if (model) {
-        try {
-          statusDisplay.update(`Generating ${currentModelKey} shape...`, true);
-          generateAll();
-          statusDisplay.update(`Generated ${currentModelKey} shape successfully.`, false);
-        } catch(e) {
-          console.error("Error:", e);
-          statusDisplay.error("Error applying deformation.");
-        }
+        statusDisplay.update(`Configuration changed to ${currentModelKey}. Press 'Generate Deformation' to process.`, false);
       }
     });
   });
@@ -442,14 +256,13 @@ function setup() {
     }
     try {
       statusDisplay.update(`Reprocessing ${currentModelKey} shape...`, true);
-      generateAll();
+      generateCurrent();
       statusDisplay.update(`Reprocessed ${currentModelKey} shape successfully.`, false);
     } catch(e) {
       console.error("Error:", e);
       statusDisplay.error("Error reprocessing model.");
     }
   };
-  
   exportBtn.onclick = exportSTL;
 }
 
@@ -458,16 +271,12 @@ function setupControlPanels() {
 }
 
 function updateControlPanels() {
-  document.getElementById('noiseControls').style.display = 
-    currentModelKey === 'noise' ? 'block' : 'none';
-  document.getElementById('sineControls').style.display = 
-    currentModelKey === 'sine' ? 'block' : 'none';
-  document.getElementById('pixelControls').style.display = 
-    currentModelKey === 'pixel' ? 'block' : 'none';
+  document.getElementById('noiseControls').style.display = currentModelKey === 'noise' ? 'block' : 'none';
+  document.getElementById('sineControls').style.display = currentModelKey === 'sine' ? 'block' : 'none';
+  document.getElementById('pixelControls').style.display = currentModelKey === 'pixel' ? 'block' : 'none';
 }
 
 function setupParameterControls() {
-  // Noise controls
   const noiseIntensity = document.getElementById('noiseIntensity');
   const noiseIntensityVal = document.getElementById('noiseIntensityVal');
   const noiseScale = document.getElementById('noiseScale');
@@ -476,62 +285,52 @@ function setupParameterControls() {
   noiseIntensity.addEventListener('input', (e) => {
     deformParams.noise.intensity = parseFloat(e.target.value);
     noiseIntensityVal.textContent = e.target.value;
-    if (model && currentModelKey === 'noise') {
-      generateAll();
-    }
+    if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
   });
   
   noiseScale.addEventListener('input', (e) => {
     deformParams.noise.scale = parseFloat(e.target.value);
     noiseScaleVal.textContent = e.target.value;
-    if (model && currentModelKey === 'noise') {
-      generateAll();
-    }
+    if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
   });
   
-  // Noise axis control
   const noiseAxis = document.getElementById('noiseAxis');
   if (noiseAxis) {
     noiseAxis.addEventListener('change', (e) => {
       deformParams.noise.axis = e.target.value;
-      if (model && currentModelKey === 'noise') {
-        generateAll();
-      }
+      if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
     });
   }
   
-  // Sine wave controls
   const sineAmp = document.getElementById('sineAmp');
   const sineAmpVal = document.getElementById('sineAmpVal');
   const sineFreq = document.getElementById('sineFreq');
   const sineFreqVal = document.getElementById('sineFreqVal');
-  const sineAxis = document.getElementById('sineAxis');
-  const sineDualAxis = document.getElementById('sineDualAxis');
+  const sineDriverAxis = document.getElementById('sineDriverAxis');
+  const sineDispAxis = document.getElementById('sineDispAxis');
   
   sineAmp.addEventListener('input', (e) => {
     deformParams.sine.amplitude = parseFloat(e.target.value);
     sineAmpVal.textContent = e.target.value;
-    if (model && currentModelKey === 'sine') {
-      generateAll();
-    }
+    if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
   });
   
   sineFreq.addEventListener('input', (e) => {
     deformParams.sine.frequency = parseFloat(e.target.value);
     sineFreqVal.textContent = e.target.value;
-    if (model && currentModelKey === 'sine') {
-      generateAll();
-    }
+    if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
   });
   
-  sineAxis.addEventListener('change', (e) => {
-    deformParams.sine.axis = e.target.value;
-    if (model && currentModelKey === 'sine') {
-      generateAll();
-    }
+  sineDriverAxis.addEventListener('change', (e) => {
+    deformParams.sine.driverAxis = e.target.value;
+    if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
   });
   
-  // Pixelate controls
+  sineDispAxis.addEventListener('change', (e) => {
+    deformParams.sine.dispAxis = e.target.value;
+    if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
+  });
+  
   const pixelSize = document.getElementById('pixelSize');
   const pixelSizeVal = document.getElementById('pixelSizeVal');
   const pixelAxis = document.getElementById('pixelAxis');
@@ -539,42 +338,27 @@ function setupParameterControls() {
   pixelSize.addEventListener('input', (e) => {
     deformParams.pixel.size = parseFloat(e.target.value);
     pixelSizeVal.textContent = e.target.value;
-    if (model && currentModelKey === 'pixel') {
-      generateAll();
-    }
+    if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
   });
   
   pixelAxis.addEventListener('change', (e) => {
     deformParams.pixel.axis = e.target.value;
-    if (model && currentModelKey === 'pixel') {
-      generateAll();
-    }
+    if (model) statusDisplay.update(`Parameters changed. Press 'Generate' to process.`, false); 
   });
 }
 
 function draw() {
   background(20);
   
-  // Update custom camera eye position based on p5 camera
-  let eye = createVector(cam.eyeX, cam.eyeY, cam.eyeZ);
-  let lookat = createVector(cam.centerX, cam.centerY, cam.centerZ);
+  // Mouse-over check restored as requested
+  if (!isMouseOverUI()) orbitControl(); 
   
-  customCamera.eye = eye;
-  customCamera.lookat = lookat;
-  customCamera.update_matrix();
-  
-  // Only allow orbit control when not interacting with UI
-  if (!isMouseOverUI()) {
-    orbitControl();
-  }
   ambientLight(100);
   pointLight(255, 255, 255, 200, 200, 200);
   
   drawModels();
   
-  if (currentModelKey === 'sine') {
-    rotateY(frameCount * 0.005);
-  }
+  if (currentModelKey === 'sine') rotateY(frameCount * 0.005);
 }
 
 function windowResized() {
@@ -584,10 +368,7 @@ function windowResized() {
 function isMouseOverUI() {
   const ui = document.getElementById('ui');
   const rect = ui.getBoundingClientRect();
-  return mouseX >= rect.left && 
-         mouseX <= rect.right && 
-         mouseY >= rect.top && 
-         mouseY <= rect.bottom;
+  return mouseX >= rect.left && mouseX <= rect.right && mouseY >= rect.top && mouseY <= rect.bottom;
 }
 
 function parseSTL(arrayBuffer) {
@@ -596,15 +377,16 @@ function parseSTL(arrayBuffer) {
   model = geometry.clone();
   model.computeBoundingBox();
   model.computeBoundingSphere();
-  models = { noise: null, sine: null, pixel: null };
+  models = { noise: null, sine: null, pixel: null }; 
   console.log("STL Loaded. Vertices:", model.attributes.position.count);
 }
 
-function generateAll() {
+function generateCurrent() {
+  if (!model) return;
   if (currentModelKey === 'noise') {
-    models.noise = voronoiShape(model.clone());
+    models.noise = noiseShape(model.clone());
   } else if (currentModelKey === 'sine') {
-    models.sine = sineWireShape(model.clone());
+    models.sine = sineDeformShape(model.clone());
   } else if (currentModelKey === 'pixel') {
     models.pixel = pixelateShape(model.clone());
   }
@@ -615,64 +397,44 @@ function drawModels() {
   const originalModel = model;
   const activeModel = models[currentModelKey];
   const mode = renderMode.value;
-  
   let modelToDraw = showDeformed && activeModel ? activeModel : originalModel;
   
   if (modelToDraw) {
     const positions = modelToDraw.attributes.position.array;
     const vertexCount = modelToDraw.attributes.position.count;
-    const normals = modelToDraw.attributes.normal ? modelToDraw.attributes.normal.array : null;
-    
-    // Set colors based on which model is being viewed
     let wireColor = modelToDraw === activeModel ? [255, 100, 100] : [100, 150, 255];
     let fillColor = modelToDraw === activeModel ? [200, 80, 80] : [80, 120, 200];
     
-    // Draw solid 3D model
     if (mode === 'solid' || mode === 'both') {
       fill(fillColor[0], fillColor[1], fillColor[2], 180);
       stroke(fillColor[0] * 0.6, fillColor[1] * 0.6, fillColor[2] * 0.6);
       strokeWeight(0.5);
-      
-      // Draw triangles as filled shapes
-      for (let i = 0; i < vertexCount; i += 3) {
-        let v0 = createVector(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-        let v1 = createVector(positions[(i + 1) * 3], positions[(i + 1) * 3 + 1], positions[(i + 1) * 3 + 2]);
-        let v2 = createVector(positions[(i + 2) * 3], positions[(i + 2) * 3 + 1], positions[(i + 2) * 3 + 2]);
-        
-        beginShape(TRIANGLES);
-        vertex(v0.x, v0.y, v0.z);
-        vertex(v1.x, v1.y, v1.z);
-        vertex(v2.x, v2.y, v2.z);
-        endShape();
+      beginShape(TRIANGLES);
+      for (let i = 0; i < vertexCount / 3; i++) { 
+        let idx = i * 9;
+        let v0x = positions[idx], v0y = positions[idx + 1], v0z = positions[idx + 2];
+        let v1x = positions[idx + 3], v1y = positions[idx + 4], v1z = positions[idx + 5];
+        let v2x = positions[idx + 6], v2y = positions[idx + 7], v2z = positions[idx + 8];
+        vertex(v0x, v0y, v0z);
+        vertex(v1x, v1y, v1z);
+        vertex(v2x, v2y, v2z);
       }
+      endShape();
     }
     
-    // Draw wireframe
     if (mode === 'wireframe' || mode === 'both') {
       stroke(wireColor[0], wireColor[1], wireColor[2]);
       strokeWeight(mode === 'both' ? 0.8 : 1.5);
       noFill();
-      
-      // Draw wireframe - show ALL edges, no culling
-      for (let i = 0; i < vertexCount; i += 3) {
-        let v0 = createVector(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-        let v1 = createVector(positions[(i + 1) * 3], positions[(i + 1) * 3 + 1], positions[(i + 1) * 3 + 2]);
-        let v2 = createVector(positions[(i + 2) * 3], positions[(i + 2) * 3 + 1], positions[(i + 2) * 3 + 2]);
-        
-        // Draw the three edges of the triangle
+      for (let i = 0; i < vertexCount / 3; i++) { 
+        let idx = i * 9;
+        let v0x = positions[idx], v0y = positions[idx + 1], v0z = positions[idx + 2];
+        let v1x = positions[idx + 3], v1y = positions[idx + 4], v1z = positions[idx + 5];
+        let v2x = positions[idx + 6], v2y = positions[idx + 7], v2z = positions[idx + 8];
         beginShape(LINES);
-        vertex(v0.x, v0.y, v0.z);
-        vertex(v1.x, v1.y, v1.z);
-        endShape();
-        
-        beginShape(LINES);
-        vertex(v1.x, v1.y, v1.z);
-        vertex(v2.x, v2.y, v2.z);
-        endShape();
-        
-        beginShape(LINES);
-        vertex(v2.x, v2.y, v2.z);
-        vertex(v0.x, v0.y, v0.z);
+        vertex(v0x, v0y, v0z); vertex(v1x, v1y, v1z);
+        vertex(v1x, v1y, v1z); vertex(v2x, v2y, v2z);
+        vertex(v2x, v2y, v2z); vertex(v0x, v0y, v0z);
         endShape();
       }
     }
@@ -681,25 +443,19 @@ function drawModels() {
 
 function exportSTL() {
   const activeModel = models[currentModelKey];
-  
   if (!activeModel) {
-    statusDisplay.error("No deformed model generated to export.");
+    statusDisplay.error("No deformed model generated to export. Press 'Generate Deformation' first.");
     return;
   }
-  
   statusDisplay.update(`Exporting ${currentModelKey} model...`, true);
-  
   try {
     const scene = new THREE.Scene();
-    const mesh = new THREE.Mesh(activeModel, new THREE.MeshNormalMaterial());
+    const mesh = new THREE.Mesh(activeModel); 
     scene.add(mesh);
-    
     const exporter = new THREE.STLExporter();
     const stlString = exporter.parse(scene, { binary: false });
-    
     const blob = new Blob([stlString], { type: 'text/plain' });
     saveAs(blob, `${currentModelKey}_deformed.stl`);
-    
     statusDisplay.update(`Export successful! ${currentModelKey}_deformed.stl`, false);
   } catch (e) {
     console.error("STL Export Error:", e);
@@ -707,139 +463,124 @@ function exportSTL() {
   }
 }
 
-function voronoiShape(geom) {
+function noiseShape(geom) {
   console.log("Generating Noise deformation...");
-  
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  const center = new THREE.Vector3();
+  bbox.getCenter(center);
   const intensity = deformParams.noise.intensity;
   const scale = deformParams.noise.scale;
-  const axis = deformParams.noise.axis;
-  
-  // Use the actual loaded geometry
+  const axisMode = deformParams.noise.axis;
   const positionAttribute = geom.getAttribute('position');
-  const posArray = positionAttribute.array;
-  
-  // Apply noise-based deformation to each vertex
   for (let i = 0; i < positionAttribute.count; i++) {
     const x = positionAttribute.getX(i);
     const y = positionAttribute.getY(i);
     const z = positionAttribute.getZ(i);
-    
-    // Apply 3D Perlin noise offset
-    let noiseValue = noise(x * scale, y * scale, z * scale);
-    let offset = noiseValue * intensity;
-    
-    // Calculate the direction from center
-    let len = Math.sqrt(x*x + y*y + z*z);
-    if (len > 0) {
-      let nx = x / len;
-      let ny = y / len;
-      let nz = z / len;
-      
-      // Apply deformation based on selected axis
-      let newX = x, newY = y, newZ = z;
-      
-      switch(axis) {
-        case 'x':
-          newX = x + nx * offset;
-          break;
-        case 'y':
-          newY = y + ny * offset;
-          break;
-        case 'z':
-          newZ = z + nz * offset;
-          break;
-        case 'xy':
-          newX = x + nx * offset;
-          newY = y + ny * offset;
-          break;
-        case 'xz':
-          newX = x + nx * offset;
-          newZ = z + nz * offset;
-          break;
-        case 'yz':
-          newY = y + ny * offset;
-          newZ = z + nz * offset;
-          break;
-        case 'all':
-        default:
-          newX = x + nx * offset;
-          newY = y + ny * offset;
-          newZ = z + nz * offset;
-          break;
-      }
-      
-      positionAttribute.setXYZ(i, newX, newY, newZ);
-    }
+    const cx = x - center.x;
+    const cy = y - center.y;
+    const cz = z - center.z;
+    const len = Math.hypot(cx, cy, cz) || 1;
+    const rx = cx / len;
+    const ry = cy / len;
+    const rz = cz / len;
+    const noiseValue = noise(cx * scale, cy * scale, cz * scale);
+    const offset = (noiseValue - 0.5) * 2 * intensity; 
+    let ox = rx * offset;
+    let oy = ry * offset;
+    let oz = rz * offset;
+    const allowX = axisMode.includes('x') || axisMode === 'all';
+    const allowY = axisMode.includes('y') || axisMode === 'all';
+    const allowZ = axisMode.includes('z') || axisMode === 'all';
+    if (!allowX) ox = 0;
+    if (!allowY) oy = 0;
+    if (!allowZ) oz = 0;
+    positionAttribute.setXYZ(i, x + ox, y + oy, z + oz);
   }
-  
   positionAttribute.needsUpdate = true;
   geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
   return geom;
 }
 
-function sineWireShape(geom) {
-  console.log("Generating Sine Wave Shape...");
-  const positions = geom.attributes.position.array;
-  
-  for (let i = 0; i < positions.length; i += 3) {
-    let x = positions[i];
-    let z = positions[i + 2];
-    let distortion = sin(x * 0.1 + frameCount * 0.1) * 20;
-    positions[i + 2] = z + distortion;
+function sineDeformShape(geom) {
+  console.log("Generating Sine Deformation...");
+  const A = deformParams.sine.amplitude;
+  const f = deformParams.sine.frequency;
+  const driverAxis = deformParams.sine.driverAxis;
+  const dispAxis = deformParams.sine.dispAxis;
+  const posAttr = geom.getAttribute('position');
+  const arr = posAttr.array;
+  const driverIndex = driverAxis === 'x' ? 0 : driverAxis === 'y' ? 1 : 2;
+  const allowX = dispAxis.includes('x') || dispAxis === 'all';
+  const allowY = dispAxis.includes('y') || dispAxis === 'all';
+  const allowZ = dispAxis.includes('z') || dispAxis === 'all';
+  for (let i = 0; i < arr.length; i += 3) {
+    const driverValue = arr[i + driverIndex];
+    const displacement = Math.sin(driverValue * f) * A;
+    if (allowX) arr[i] += displacement;
+    if (allowY) arr[i + 1] += displacement;
+    if (allowZ) arr[i + 2] += displacement;
   }
-  
-  geom.attributes.position.needsUpdate = true;
+  posAttr.needsUpdate = true;
   geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
   return geom;
 }
 
 function pixelateShape(geom) {
   console.log("Generating Pixelate Shape...");
-  
   const pixelSize = deformParams.pixel.size;
   const axisMode = deformParams.pixel.axis;
-  
   const positionAttribute = geom.getAttribute('position');
-  const positions = positionAttribute.array;
-  
-  // Snap each vertex to a grid based on axis selection
-  for (let i = 0; i < positions.length; i += 3) {
-    let x = positions[i];
-    let y = positions[i + 1];
-    let z = positions[i + 2];
-    
-    // Apply pixelation based on axis mode
-    switch(axisMode) {
-      case 'all':
-        positions[i] = Math.round(x / pixelSize) * pixelSize;
-        positions[i + 1] = Math.round(y / pixelSize) * pixelSize;
-        positions[i + 2] = Math.round(z / pixelSize) * pixelSize;
-        break;
-      case 'x':
-        positions[i] = Math.round(x / pixelSize) * pixelSize;
-        break;
-      case 'y':
-        positions[i + 1] = Math.round(y / pixelSize) * pixelSize;
-        break;
-      case 'z':
-        positions[i + 2] = Math.round(z / pixelSize) * pixelSize;
-        break;
-      case 'xy':
-        positions[i] = Math.round(x / pixelSize) * pixelSize;
-        positions[i + 1] = Math.round(y / pixelSize) * pixelSize;
-        break;
-      case 'xz':
-        positions[i] = Math.round(x / pixelSize) * pixelSize;
-        positions[i + 2] = Math.round(z / pixelSize) * pixelSize;
-        break;
-      case 'yz':
-        positions[i + 1] = Math.round(y / pixelSize) * pixelSize;
-        positions[i + 2] = Math.round(z / pixelSize) * pixelSize;
-        break;
+  const arr = positionAttribute.array;
+  const initialLength = arr.length;
+  const allowX = axisMode.includes('x') || axisMode === 'all';
+  const allowY = axisMode.includes('y') || axisMode === 'all';
+  const allowZ = axisMode.includes('z') || axisMode === 'all';
+  for (let i = 0; i < arr.length; i += 3) {
+    let x = arr[i];
+    let y = arr[i + 1];
+    let z = arr[i + 2];
+    if (allowX) arr[i] = Math.round(x / pixelSize) * pixelSize;
+    if (allowY) arr[i + 1] = Math.round(y / pixelSize) * pixelSize;
+    if (allowZ) arr[i + 2] = Math.round(z / pixelSize) * pixelSize;
+  }
+  const cleanedPositions = [];
+  const epsSq = 1e-10; 
+  for (let i = 0; i < initialLength; i += 9) {
+    const v0x = arr[i], v0y = arr[i + 1], v0z = arr[i + 2];
+    const v1x = arr[i + 3], v1y = arr[i + 4], v1z = arr[i + 5];
+    const v2x = arr[i + 6], v2y = arr[i + 7], v2z = arr[i + 8];
+    const isDegenerate = (
+      (v0x === v1x && v0y === v1y && v0z === v1z) ||
+      (v1x === v2x && v1y === v2y && v1z === v2z) ||
+      (v2x === v0x && v2y === v0y && v2z === v0z)
+    );
+    if (isDegenerate) continue;
+    const e1x = v1x - v0x, e1y = v1y - v0y, e1z = v1z - v0z;
+    const e2x = v2x - v0x, e2y = v2y - v0y, e2z = v2z - v0z;
+    const nx = e1y * e2z - e1z * e2y;
+    const ny = e1z * e2x - e1x * e2z;
+    const nz = e1x * e2y - e1y * e2x;
+    const area2 = nx*nx + ny*ny + nz*nz;
+    if (area2 > epsSq) {
+      cleanedPositions.push(v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
     }
   }
-  
+  if (cleanedPositions.length && cleanedPositions.length !== initialLength) {
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(cleanedPositions, 3));
+    geom.deleteAttribute('normal');
+  } else if (cleanedPositions.length === 0) {
+    console.warn("Pixelation caused complete mesh collapse.");
+    geom.setAttribute('position', new THREE.Float32BufferAttribute([], 3));
+    geom.deleteAttribute('normal');
+  }
   positionAttribute.needsUpdate = true;
   geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
   return geom;
 }
