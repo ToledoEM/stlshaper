@@ -1,5 +1,8 @@
 # STL Deformer Demo ~ Subversion of Form
 
+
+*This is under constant development*
+
 This project demonstrates a real-time STL deformation tool using Three.js and p5.js. It allows you to load an STL file, apply various deformation effects (Noise, Sine Wave, Pixelate), and visualize the deformed model. It's a tool for pushing the boundaries of what you expect from a 3D model. The goal is to create subtly unsettling, oddly beautiful, and deliberately weird transformations of STL objects. Think of it as a digital sculpting playground.
 
 Transform your 3D models into something unexpected, unsettling, and strangely beautiful. This experimental tool lets you push the boundaries of what's possible with STL files, creating deliberate distortions and abstract variations of your models. Think of it as a digital sculpture lab where mathematical chaos meets artistic expression.
@@ -78,8 +81,7 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
 ## Code Structure
 
 *   **`index.html`:**  The main HTML file that sets up the Three.js scene, UI elements, and event listeners.
-*   **`sketch.js`:**  Contains the core logic for loading the STL, applying the deformation, rendering the model, and handling user interactions.  This file implements the Three.js scene, the custom camera, and the deformation algorithms.
-
+*   **`main.js`:**  Contains the core logic for loading the STL, applying the deformation, rendering the model, and handling user interactions.  
 ## Notes
 
 *   This is a basic demonstration and can be extended with more advanced features.
