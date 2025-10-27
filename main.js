@@ -225,7 +225,7 @@ let deformedGeometries = { noise: null, sine: null, pixel: null };
 let currentModelKey = "noise";
 
 // UI elements and parameters
-let processBtn, statusElement, exportBtn, toggleView, renderMode;
+let processBtn, statusElement, exportBtn, toggleView, renderMode, clearBtn;
 let meshGroup; // Group to hold the visible THREE.js meshes
 
 let deformParams = {
@@ -284,6 +284,7 @@ function init() {
   exportBtn = document.getElementById("exportBtn");
   toggleView = document.getElementById("toggleView");
   renderMode = document.getElementById("renderMode");
+  clearBtn = document.getElementById("clearBtn");
   // --- END CRITICAL FIX ---
 
   // SCENE
@@ -335,6 +336,9 @@ function init() {
   setupParameterControls();
 
   window.addEventListener("resize", onWindowResize, false);
+
+  // Try to auto-load a default STL if available
+  loadDefaultSTL();
 
   animate();
 }
@@ -422,9 +426,77 @@ function setupListeners() {
   // Export Button
   exportBtn.onclick = exportSTL;
 
+  // Clear Button
+  if (clearBtn) {
+    clearBtn.onclick = () => {
+      clearModelAndUI();
+    };
+  }
+
   // View Controls
   toggleView.addEventListener("change", updateSceneMeshes);
   renderMode.addEventListener("change", updateSceneMeshes);
+}
+
+function clearModelAndUI() {
+  // Reset geometries
+  originalGeometry = null;
+  deformedGeometries = { noise: null, sine: null, pixel: null };
+
+  // Clear meshes from scene
+  if (meshGroup) {
+    while (meshGroup.children.length > 0) {
+      meshGroup.remove(meshGroup.children[0]);
+    }
+  }
+
+  // Reset UI state
+  if (processBtn) processBtn.disabled = true;
+  if (exportBtn) exportBtn.disabled = true;
+  const fileInput = document.getElementById("fileInput");
+  if (fileInput) fileInput.value = "";
+  if (statusElement) statusElement.textContent = "Cleared. Ready to load STL.";
+}
+
+function loadDefaultSTL() {
+  const defaultPath = "JustBones617_0_resaved_1_NIH3D.stl";
+  const loader = new THREE.STLLoader();
+  // Provide immediate feedback
+  statusDisplay.update(`Loading default model: ${defaultPath} ...`, true);
+  loader.load(
+    defaultPath,
+    (geometry) => {
+      try {
+        // Set as current original geometry
+        originalGeometry = geometry.clone();
+        originalGeometry.computeBoundingBox();
+        originalGeometry.center();
+        originalGeometry.computeBoundingSphere();
+        // Reset any previous deformations
+        deformedGeometries = { noise: null, sine: null, pixel: null };
+        // Show the original mesh immediately
+        updateSceneMeshes();
+        // Enable processing now that a model is present
+        if (processBtn) processBtn.disabled = false;
+        if (exportBtn) exportBtn.disabled = true;
+        statusDisplay.update(
+          `Default model loaded successfully. Click 'Generate Deformation'.`,
+          false,
+        );
+      } catch (err) {
+        console.error("Default STL post-load error:", err);
+        statusDisplay.error("Default model error. Check console.");
+      }
+    },
+    undefined,
+    (err) => {
+      console.warn("Default STL not found or failed to load:", err);
+      statusDisplay.update("Ready to load STL.", true);
+      // Keep buttons disabled until user loads a file
+      if (processBtn) processBtn.disabled = true;
+      if (exportBtn) exportBtn.disabled = true;
+    },
+  );
 }
 
 function setupControlPanels() {

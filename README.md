@@ -93,6 +93,14 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
 
 Feel free to contribute to this project!  You can submit bug reports, feature requests, or pull requests.
 
+## Basic Image
+
+Hand STL from https://3d.nih.gov/entries/17249 it was further simplified and corrected on MeshLab.
+
+Ref: Mehra, K., Collett, K., Augenstein, R., and Hegdé J. (2022)
+
+
+
 ## License
 
 MIT License
