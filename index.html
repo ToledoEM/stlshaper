@@ -88,6 +88,25 @@
                 justify-content: center;
             }
 
+            #progressContainer {
+                display: none;
+            }
+
+            #progressBar {
+                width: 100%;
+                height: 8px;
+                background: #333;
+                border-radius: 4px;
+                overflow: hidden;
+            }
+
+            #progressFill {
+                height: 100%;
+                background: #6cf;
+                width: 0%;
+                transition: width 0.3s ease;
+            }
+
             button {
                 padding: 8px;
                 background: #555;
@@ -119,6 +138,29 @@
     <body>
         <div id="ui">
             <div id="status">Ready to load STL.</div>
+
+            <div id="progressContainer" style="display: none;">
+                <div
+                    id="progressBar"
+                    style="
+                        width: 100%;
+                        height: 8px;
+                        background: #333;
+                        border-radius: 4px;
+                        overflow: hidden;
+                    "
+                >
+                    <div
+                        id="progressFill"
+                        style="
+                            height: 100%;
+                            background: #6cf;
+                            width: 0%;
+                            transition: width 0.3s ease;
+                        "
+                    ></div>
+                </div>
+            </div>
 
             <input type="file" id="fileInput" accept=".stl" />
 

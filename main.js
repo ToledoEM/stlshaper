@@ -229,11 +229,225 @@ let originalFileName = null; // Track original file name for settings export
 let processBtn, statusElement, exportBtn, toggleView, renderMode, clearBtn;
 let meshGroup; // Group to hold the visible THREE.js meshes
 
+let workerPool; // Worker pool for parallel processing
+
 let deformParams = {
   noise: { intensity: 1.5, scale: 0.02, axis: "all" },
   sine: { amplitude: 15, frequency: 0.05, driverAxis: "x", dispAxis: "x" },
   pixel: { size: 5, axis: "all" },
 };
+
+// --- Worker Pool for Parallel Processing ---
+class WorkerPool {
+  constructor() {
+    this.workers = [];
+    this.availableWorkers = [];
+    this.pendingTasks = [];
+    this.isProcessing = false;
+    this.onProgress = null;
+    this.onComplete = null;
+    this.chunkSize = 10000; // Process 10K vertices per chunk
+    this.initializeWorkers();
+  }
+
+  initializeWorkers() {
+    // Create workers based on CPU cores (max 8 to avoid overwhelming)
+    const workerCount = Math.min(navigator.hardwareConcurrency || 4, 8);
+
+    for (let i = 0; i < workerCount; i++) {
+      try {
+        const worker = new Worker('worker.js');
+        worker.workerId = i;
+        worker.isBusy = false;
+
+        worker.onmessage = (e) => this.handleWorkerMessage(e, worker);
+        worker.onerror = (e) => this.handleWorkerError(e, worker);
+
+        this.workers.push(worker);
+        this.availableWorkers.push(worker);
+      } catch (error) {
+        console.warn('Failed to create worker:', error);
+      }
+    }
+
+    console.log(`Initialized ${this.workers.length} workers`);
+  }
+
+  handleWorkerMessage(e, worker) {
+    const { type, vertices, chunkId, workerId, success, error } = e.data;
+
+    if (type === 'result' && success) {
+      // Store result for this chunk
+      this.results[chunkId] = vertices;
+
+      // Mark worker as available
+      worker.isBusy = false;
+      this.availableWorkers.push(worker);
+
+      // Update progress
+      this.completedChunks++;
+      if (this.onProgress) {
+        this.onProgress(this.completedChunks, this.totalChunks);
+      }
+
+      // Check if all chunks are complete
+      if (this.completedChunks === this.totalChunks) {
+        this.finalizeDeformation();
+      } else {
+        // Process next pending task
+        this.processNextTask();
+      }
+    } else if (type === 'error') {
+      console.error(`Worker ${workerId} error:`, error);
+      // Continue with other workers
+      worker.isBusy = false;
+      this.availableWorkers.push(worker);
+      this.processNextTask();
+    }
+  }
+
+  handleWorkerError(e, worker) {
+    console.error('Worker error:', e);
+    worker.isBusy = false;
+    this.availableWorkers.push(worker);
+    this.processNextTask();
+  }
+
+  async deformVertices(deformationType, params, geometry) {
+    return new Promise((resolve, reject) => {
+      if (!this.workers.length) {
+        // Fallback to single-threaded processing
+        console.warn('No workers available, falling back to single-threaded processing');
+        resolve(this.fallbackDeformation(deformationType, params, geometry));
+        return;
+      }
+
+      this.onComplete = resolve;
+      this.isProcessing = true;
+      this.results = {};
+      this.completedChunks = 0;
+
+      // Get vertices from geometry
+      const positionAttribute = geometry.getAttribute('position');
+      const vertices = positionAttribute.array.slice(); // Copy array
+      const bbox = geometry.boundingBox;
+
+      // Split vertices into chunks
+      const chunks = this.chunkVertices(vertices, this.chunkSize);
+      this.totalChunks = chunks.length;
+
+      // Create tasks for each chunk
+      this.pendingTasks = chunks.map((chunk, index) => ({
+        chunkId: index,
+        vertices: chunk.vertices,
+        startIndex: chunk.startIndex,
+        deformationType,
+        params,
+        bbox
+      }));
+
+      // Start processing
+      for (let i = 0; i < Math.min(this.availableWorkers.length, this.pendingTasks.length); i++) {
+        this.processNextTask();
+      }
+    });
+  }
+
+  chunkVertices(vertices, chunkSize) {
+    const chunks = [];
+    for (let i = 0; i < vertices.length; i += chunkSize * 3) { // *3 for x,y,z components
+      const endIndex = Math.min(i + chunkSize * 3, vertices.length);
+      const chunkVertices = vertices.slice(i, endIndex);
+      chunks.push({
+        vertices: chunkVertices,
+        startIndex: i / 3 // Convert back to vertex index
+      });
+    }
+    return chunks;
+  }
+
+  processNextTask() {
+    if (!this.pendingTasks.length || !this.availableWorkers.length) return;
+
+    const worker = this.availableWorkers.shift();
+    const task = this.pendingTasks.shift();
+
+    worker.isBusy = true;
+
+    worker.postMessage({
+      type: 'deform',
+      deformationType: task.deformationType,
+      params: task.params,
+      vertices: task.vertices,
+      bbox: task.bbox,
+      chunkId: task.chunkId,
+      workerId: worker.workerId
+    }, [task.vertices.buffer]); // Transfer buffer for performance
+  }
+
+  finalizeDeformation() {
+    // Reassemble vertices from all chunks
+    const finalVertices = new Float32Array(this.originalVertexCount);
+
+    for (let chunkId = 0; chunkId < this.totalChunks; chunkId++) {
+      const chunkVertices = this.results[chunkId];
+      const startIndex = chunkId * this.chunkSize * 3;
+      finalVertices.set(chunkVertices, startIndex);
+    }
+
+    // Update geometry
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(finalVertices, 3));
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+    geometry.computeBoundingSphere();
+
+    this.isProcessing = false;
+    if (this.onComplete) {
+      this.onComplete(geometry);
+    }
+  }
+
+  fallbackDeformation(deformationType, params, geometry) {
+    // Single-threaded fallback using original functions
+    const geom = geometry.clone();
+
+    if (deformationType === "noise") {
+      return noiseShape(geom);
+    } else if (deformationType === "sine") {
+      return sineDeformShape(geom);
+    } else if (deformationType === "pixel") {
+      return pixelateShape(geom);
+    }
+
+    return geom;
+  }
+
+  setProgressCallback(callback) {
+    this.onProgress = (completed, total) => {
+      // Update progress bar
+      const progressContainer = document.getElementById('progressContainer');
+      const progressFill = document.getElementById('progressFill');
+
+      if (progressContainer && progressFill) {
+        const percentage = (completed / total) * 100;
+        progressFill.style.width = `${percentage}%`;
+        progressContainer.style.display = completed < total ? 'block' : 'none';
+      }
+
+      // Call user callback if provided
+      if (callback) {
+        callback(completed, total);
+      }
+    };
+  }
+
+  terminate() {
+    this.workers.forEach(worker => worker.terminate());
+    this.workers = [];
+    this.availableWorkers = [];
+  }
+}
 
 // --- UI Logic and Handlers ---
 
@@ -339,6 +553,9 @@ function init() {
   meshGroup = new THREE.Group();
   scene.add(meshGroup);
 
+  // Initialize worker pool for parallel processing
+  workerPool = new WorkerPool();
+
   setupListeners();
   setupControlPanels(); // This is correctly called here
   setupParameterControls();
@@ -413,19 +630,14 @@ function setupListeners() {
   });
 
   // Process Button - PRIMARY TRIGGER FOR DEFORMATION
-  processBtn.onclick = () => {
+  processBtn.onclick = async () => {
     if (!originalGeometry) {
       statusDisplay.error("Please load an STL first.");
       return;
     }
     try {
-      statusDisplay.update(`Generating ${currentModelKey} shape...`, true);
-      generateCurrent();
+      await generateCurrent();
       updateSceneMeshes();
-      statusDisplay.update(
-        `Generated ${currentModelKey} shape successfully.`,
-        false,
-      );
     } catch (e) {
       console.error("Error:", e);
       statusDisplay.error("Error generating deformation.");
@@ -600,18 +812,36 @@ function parseSTL(arrayBuffer) {
   );
 }
 
-function generateCurrent() {
+async function generateCurrent() {
   if (!originalGeometry) return;
-  // Clone the original geometry for modification.
-  // It is essential to use a clone of the centered geometry.
-  const original = originalGeometry.clone();
 
-  if (currentModelKey === "noise") {
-    deformedGeometries.noise = noiseShape(original);
-  } else if (currentModelKey === "sine") {
-    deformedGeometries.sine = sineDeformShape(original);
-  } else if (currentModelKey === "pixel") {
-    deformedGeometries.pixel = pixelateShape(original);
+  try {
+    statusDisplay.update(`Processing ${currentModelKey} deformation...`, true);
+
+    // Set up progress callback
+    workerPool.setProgressCallback((completed, total) => {
+      const progress = Math.round((completed / total) * 100);
+      statusDisplay.update(`Processing ${currentModelKey} deformation... ${progress}%`, true);
+    });
+
+    // Store original vertex count for worker pool
+    workerPool.originalVertexCount = originalGeometry.attributes.position.count * 3;
+
+    // Use worker pool for parallel processing
+    const deformedGeometry = await workerPool.deformVertices(
+      currentModelKey,
+      deformParams[currentModelKey],
+      originalGeometry
+    );
+
+    // Store the result
+    deformedGeometries[currentModelKey] = deformedGeometry;
+
+    statusDisplay.update(`Generated ${currentModelKey} deformation successfully.`, false);
+
+  } catch (error) {
+    console.error('Deformation error:', error);
+    statusDisplay.error('Error generating deformation.');
   }
 }
 
