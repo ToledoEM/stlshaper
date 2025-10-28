@@ -223,15 +223,16 @@ let originalGeometry;
 // deformedGeometries holds the *result* of the deformation process
 let deformedGeometries = { noise: null, sine: null, pixel: null };
 let currentModelKey = "noise";
+let originalFileName = null; // Track original file name for settings export
 
 // UI elements and parameters
 let processBtn, statusElement, exportBtn, toggleView, renderMode, clearBtn;
 let meshGroup; // Group to hold the visible THREE.js meshes
 
 let deformParams = {
-  noise: { intensity: 15, scale: 0.02, axis: "all" },
+  noise: { intensity: 1.5, scale: 0.02, axis: "all" },
   sine: { amplitude: 15, frequency: 0.05, driverAxis: "x", dispAxis: "x" },
-  pixel: { size: 15, axis: "all" },
+  pixel: { size: 5, axis: "all" },
 };
 
 // --- UI Logic and Handlers ---
@@ -248,6 +249,13 @@ const statusDisplay = {
     // Export button is enabled ONLY if a file is loaded AND a deformed geometry exists
     if (exportBtn)
       exportBtn.disabled = !(
+        originalGeometry && deformedGeometries[currentModelKey]
+      );
+
+    // Export Settings button has the same conditions as Export button
+    const exportSettingsBtn = document.getElementById("exportSettingsBtn");
+    if (exportSettingsBtn)
+      exportSettingsBtn.disabled = !(
         originalGeometry && deformedGeometries[currentModelKey]
       );
 
@@ -366,6 +374,7 @@ function setupListeners() {
       statusDisplay.update("Ready to load STL.");
       return;
     }
+    originalFileName = file.name; // Store original file name
     statusDisplay.update(`Loading file: ${file.name}...`, true);
     const reader = new FileReader();
     reader.onload = () => {
@@ -426,6 +435,9 @@ function setupListeners() {
   // Export Button
   exportBtn.onclick = exportSTL;
 
+  // Export Settings Button
+  document.getElementById("exportSettingsBtn").onclick = exportSettings;
+
   // Clear Button
   if (clearBtn) {
     clearBtn.onclick = () => {
@@ -442,6 +454,7 @@ function clearModelAndUI() {
   // Reset geometries
   originalGeometry = null;
   deformedGeometries = { noise: null, sine: null, pixel: null };
+  originalFileName = null; // Reset original file name
 
   // Clear meshes from scene
   if (meshGroup) {
@@ -453,6 +466,8 @@ function clearModelAndUI() {
   // Reset UI state
   if (processBtn) processBtn.disabled = true;
   if (exportBtn) exportBtn.disabled = true;
+  const exportSettingsBtn = document.getElementById("exportSettingsBtn");
+  if (exportSettingsBtn) exportSettingsBtn.disabled = true;
   const fileInput = document.getElementById("fileInput");
   if (fileInput) fileInput.value = "";
   if (statusElement) statusElement.textContent = "Cleared. Ready to load STL.";
@@ -474,15 +489,14 @@ function loadDefaultSTL() {
         originalGeometry.computeBoundingSphere();
         // Reset any previous deformations
         deformedGeometries = { noise: null, sine: null, pixel: null };
+        originalFileName = defaultPath; // Set default file name
         // Show the original mesh immediately
         updateSceneMeshes();
         // Enable processing now that a model is present
         if (processBtn) processBtn.disabled = false;
         if (exportBtn) exportBtn.disabled = true;
-        statusDisplay.update(
-          `Default model loaded successfully. Click 'Generate Deformation'.`,
-          false,
-        );
+        const exportSettingsBtn = document.getElementById("exportSettingsBtn");
+        if (exportSettingsBtn) exportSettingsBtn.disabled = true;
       } catch (err) {
         console.error("Default STL post-load error:", err);
         statusDisplay.error("Default model error. Check console.");
@@ -685,6 +699,37 @@ function exportSTL() {
   } catch (e) {
     console.error("STL Export Error:", e);
     statusDisplay.error("Export failed. Check console.");
+  }
+}
+
+function exportSettings() {
+  const activeModel = deformedGeometries[currentModelKey];
+  if (!activeModel) {
+    statusDisplay.error("No deformed model generated to export settings.");
+    return;
+  }
+
+  statusDisplay.update(`Exporting ${currentModelKey} settings...`, true);
+
+  try {
+    const settingsData = {
+      originalFileName: originalFileName,
+      deformationType: currentModelKey,
+      settings: deformParams[currentModelKey],
+      exportDateTime: new Date().toISOString()
+    };
+
+    const jsonString = JSON.stringify(settingsData, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    saveAs(blob, `${currentModelKey}_settings.json`);
+
+    statusDisplay.update(
+      `Settings exported! ${currentModelKey}_settings.json`,
+      false,
+    );
+  } catch (e) {
+    console.error("Settings Export Error:", e);
+    statusDisplay.error("Settings export failed. Check console.");
   }
 }
 
