@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <title>STL Deformer (THREE.js)</title>
+        <title>STLShaper - STL Deformation Tool</title>
         <style>
             body {
                 margin: 0;
@@ -178,6 +178,10 @@
                     ><input type="radio" name="type" value="pixel" />
                     Pixelate</label
                 >
+                <label
+                    ><input type="radio" name="type" value="idw" />
+                    IDW Shepard</label
+                >
             </div>
 
             <div id="noiseControls" class="deform-controls">
@@ -299,6 +303,69 @@
                 </label>
             </div>
 
+            <div
+                id="idwControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>IDW Shepard Settings:</strong>
+                <label>
+                    Number of Points: <span id="idwNumPointsVal">8</span>
+                    <input
+                        type="range"
+                        id="idwNumPoints"
+                        min="3"
+                        max="50"
+                        value="8"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    Seed: <span id="idwSeedVal">0</span>
+                    <input
+                        type="number"
+                        id="idwSeed"
+                        min="0"
+                        max="10000"
+                        value="0"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    Weight: <span id="idwWeightVal">2.0</span>
+                    <input
+                        type="range"
+                        id="idwWeight"
+                        min="-10"
+                        max="10"
+                        value="2.0"
+                        step="0.1"
+                    />
+                </label>
+                <label>
+                    Power: <span id="idwPowerVal">2.0</span>
+                    <input
+                        type="range"
+                        id="idwPower"
+                        min="0.5"
+                        max="6.0"
+                        value="2.0"
+                        step="0.1"
+                    />
+                </label>
+                <label>
+                    Global Scale: <span id="idwScaleVal">2.0</span>
+                    <input
+                        type="range"
+                        id="idwScale"
+                        min="0.1"
+                        max="10.0"
+                        value="2.0"
+                        step="0.1"
+                    />
+                </label>
+            </div>
+
             <div style="display:flex; gap:8px; align-items:center;">
                 <button id="processBtn" disabled style="flex:1;">Generate Deformation</button>
                 <button id="clearBtn" style="flex:0 0 auto;">Clear</button>
@@ -323,6 +390,10 @@
             <button id="exportBtn" disabled>Export Current STL</button>
 
             <button id="exportSettingsBtn" disabled>Export Settings</button>
+
+            <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #555; text-align: center; font-size: 0.8em; color: #888;">
+                STLShaper <a href="https://toledoem.github.io/" target="_blank" style="color: #6cf; text-decoration: none;">ToledoEM</a>, MIT license
+            </div>
         </div>
 
         <div id="container"></div>

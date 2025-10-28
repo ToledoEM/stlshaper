@@ -127,6 +127,60 @@ function pixelateShape(vertices, params) {
   return vertices;
 }
 
+function idwShape(vertices, params) {
+  const controlPoints = params.controlPoints || [];
+  const weight = params.weight;
+  const power = params.power;
+  const scale = params.scale;
+
+  if (controlPoints.length === 0) {
+    console.warn('No control points provided for IDW deformation');
+    return vertices;
+  }
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    const vx = vertices[i];
+    const vy = vertices[i + 1];
+    const vz = vertices[i + 2];
+
+    let totalDisplacementX = 0;
+    let totalDisplacementY = 0;
+    let totalDisplacementZ = 0;
+
+    // Accumulate influence from all control points
+    for (const controlPoint of controlPoints) {
+      // Calculate vector from vertex to control point
+      const dx = controlPoint.x - vx;
+      const dy = controlPoint.y - vy;
+      const dz = controlPoint.z - vz;
+      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+      // Avoid division by zero
+      const safeDistance = Math.max(distance, 0.001);
+
+      // IDW weight calculation - stronger effect for closer vertices
+      const idwWeight = Math.abs(weight) / Math.pow(safeDistance, power);
+
+      // Normalize direction vector
+      const nx = dx / safeDistance;
+      const ny = dy / safeDistance;
+      const nz = dz / safeDistance;
+
+      // Apply displacement: positive weight attracts, negative weight repels
+      const displacementScale = idwWeight * scale * Math.sign(weight);
+      totalDisplacementX += nx * displacementScale;
+      totalDisplacementY += ny * displacementScale;
+      totalDisplacementZ += nz * displacementScale;
+    }
+
+    vertices[i] += totalDisplacementX;
+    vertices[i + 1] += totalDisplacementY;
+    vertices[i + 2] += totalDisplacementZ;
+  }
+
+  return vertices;
+}
+
 // --- Worker Message Handling ---
 
 self.onmessage = function(e) {
@@ -145,6 +199,9 @@ self.onmessage = function(e) {
           break;
         case 'pixel':
           deformedVertices = pixelateShape(vertices, params);
+          break;
+        case 'idw':
+          deformedVertices = idwShape(vertices, params);
           break;
         default:
           throw new Error(`Unknown deformation type: ${deformationType}`);

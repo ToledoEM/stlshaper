@@ -221,7 +221,7 @@ let container = document.getElementById("container");
 // Core model storage
 let originalGeometry;
 // deformedGeometries holds the *result* of the deformation process
-let deformedGeometries = { noise: null, sine: null, pixel: null };
+let deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
 let currentModelKey = "noise";
 let originalFileName = null; // Track original file name for settings export
 
@@ -235,7 +235,189 @@ let deformParams = {
   noise: { intensity: 1.5, scale: 0.02, axis: "all" },
   sine: { amplitude: 15, frequency: 0.05, driverAxis: "x", dispAxis: "x" },
   pixel: { size: 5, axis: "all" },
+  idw: { numPoints: 8, seed: 0, weight: 2.0, power: 2.0, scale: 2.0 }
 };
+
+// --- Poisson Disk Sampling for IDW Control Points ---
+class PoissonSampler {
+  constructor(seed = 0) {
+    this.seed = seed;
+    this.random = this.seededRandom(seed);
+  }
+
+  seededRandom(seed) {
+    return function() {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+  }
+
+  // Generate Poisson disk samples within a bounding box
+  generateSamples(minDistance, maxSamples, bbox) {
+    const samples = [];
+    const activeList = [];
+
+    // Calculate grid cell size
+    const cellSize = minDistance / Math.sqrt(2);
+    const gridWidth = Math.ceil((bbox.max.x - bbox.min.x) / cellSize);
+    const gridHeight = Math.ceil((bbox.max.y - bbox.min.y) / cellSize);
+    const gridDepth = Math.ceil((bbox.max.z - bbox.min.z) / cellSize);
+
+    // Create 3D grid
+    const grid = new Array(gridWidth * gridHeight * gridDepth).fill(null);
+
+    // Helper functions
+    const gridIndex = (x, y, z) => {
+      const gx = Math.floor((x - bbox.min.x) / cellSize);
+      const gy = Math.floor((y - bbox.min.y) / cellSize);
+      const gz = Math.floor((z - bbox.min.z) / cellSize);
+      if (gx < 0 || gx >= gridWidth || gy < 0 || gy >= gridHeight || gz < 0 || gz >= gridDepth) {
+        return -1;
+      }
+      return gx + gy * gridWidth + gz * gridWidth * gridHeight;
+    };
+
+    const distance = (a, b) => {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const dz = a.z - b.z;
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    };
+
+    // Generate first sample randomly within bounds
+    const firstSample = {
+      x: bbox.min.x + this.random() * (bbox.max.x - bbox.min.x),
+      y: bbox.min.y + this.random() * (bbox.max.y - bbox.min.y),
+      z: bbox.min.z + this.random() * (bbox.max.z - bbox.min.z)
+    };
+
+    samples.push(firstSample);
+    activeList.push(firstSample);
+    const firstIndex = gridIndex(firstSample.x, firstSample.y, firstSample.z);
+    if (firstIndex >= 0) {
+      grid[firstIndex] = firstSample;
+    }
+
+    // Generate additional samples
+    while (activeList.length > 0 && samples.length < maxSamples) {
+      const randomIndex = Math.floor(this.random() * activeList.length);
+      const activeSample = activeList[randomIndex];
+
+      let found = false;
+      // Try up to 30 candidate points around the active sample
+      for (let attempt = 0; attempt < 30; attempt++) {
+        // Generate candidate point in annulus around active sample
+        const angle1 = this.random() * Math.PI * 2;
+        const angle2 = this.random() * Math.PI * 2;
+        const radius = minDistance * (1 + this.random());
+
+        const candidate = {
+          x: activeSample.x + radius * Math.sin(angle1) * Math.cos(angle2),
+          y: activeSample.y + radius * Math.sin(angle1) * Math.sin(angle2),
+          z: activeSample.z + radius * Math.cos(angle1)
+        };
+
+        // Check bounds
+        if (candidate.x < bbox.min.x || candidate.x > bbox.max.x ||
+            candidate.y < bbox.min.y || candidate.y > bbox.max.y ||
+            candidate.z < bbox.min.z || candidate.z > bbox.max.z) {
+          continue;
+        }
+
+        // Check distance to nearby samples
+        const candidateGridIndex = gridIndex(candidate.x, candidate.y, candidate.z);
+        if (candidateGridIndex < 0) continue;
+
+        let tooClose = false;
+        // Check neighboring grid cells
+        for (let dx = -1; dx <= 1 && !tooClose; dx++) {
+          for (let dy = -1; dy <= 1 && !tooClose; dy++) {
+            for (let dz = -1; dz <= 1 && !tooClose; dz++) {
+              const neighborIndex = candidateGridIndex + dx + dy * gridWidth + dz * gridWidth * gridHeight;
+              if (neighborIndex >= 0 && neighborIndex < grid.length && grid[neighborIndex]) {
+                if (distance(candidate, grid[neighborIndex]) < minDistance) {
+                  tooClose = true;
+                }
+              }
+            }
+          }
+        }
+
+        if (!tooClose) {
+          samples.push(candidate);
+          activeList.push(candidate);
+          grid[candidateGridIndex] = candidate;
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) {
+        // Remove from active list
+        activeList.splice(randomIndex, 1);
+      }
+    }
+
+    return samples;
+  }
+
+  // Filter samples to only include those inside the mesh volume
+  filterInsideVolume(samples, geometry) {
+    const insideSamples = [];
+
+    // Create a temporary mesh for ray casting
+    const tempMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+
+    for (const sample of samples) {
+      if (this.isPointInsideMesh(sample, tempMesh)) {
+        insideSamples.push(sample);
+      }
+    }
+
+    return insideSamples;
+  }
+
+  // Use ray casting to determine if a point is inside the mesh
+  isPointInsideMesh(point, mesh) {
+    const raycaster = new THREE.Raycaster();
+    const directions = [
+      new THREE.Vector3(1, 0, 0),
+      new THREE.Vector3(-1, 0, 0),
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0, -1, 0),
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, -1),
+      // Additional diagonal rays for better accuracy
+      new THREE.Vector3(1, 1, 1).normalize(),
+      new THREE.Vector3(-1, 1, 1).normalize(),
+      new THREE.Vector3(1, -1, 1).normalize(),
+      new THREE.Vector3(1, 1, -1).normalize()
+    ];
+
+    let insideCount = 0;
+    const totalDirections = directions.length;
+
+    for (const direction of directions) {
+      raycaster.set(new THREE.Vector3(point.x, point.y, point.z), direction);
+      const intersects = raycaster.intersectObject(mesh);
+
+      // Count intersections in positive direction
+      let count = 0;
+      for (const intersect of intersects) {
+        if (intersect.distance > 0.001) { // Small epsilon to avoid self-intersection
+          count++;
+        }
+      }
+
+      if (count % 2 === 1) {
+        insideCount++;
+      }
+    }
+
+    // Point is inside if majority of rays indicate it's inside
+    return insideCount >= Math.ceil(totalDirections * 0.6); // 60% threshold for robustness
+  }
+}
 
 // --- Worker Pool for Parallel Processing ---
 class WorkerPool {
@@ -418,6 +600,8 @@ class WorkerPool {
       return sineDeformShape(geom);
     } else if (deformationType === "pixel") {
       return pixelateShape(geom);
+    } else if (deformationType === "idw") {
+      return idwShape(geom, params);
     }
 
     return geom;
@@ -665,7 +849,7 @@ function setupListeners() {
 function clearModelAndUI() {
   // Reset geometries
   originalGeometry = null;
-  deformedGeometries = { noise: null, sine: null, pixel: null };
+  deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
   originalFileName = null; // Reset original file name
 
   // Clear meshes from scene
@@ -673,6 +857,16 @@ function clearModelAndUI() {
     while (meshGroup.children.length > 0) {
       meshGroup.remove(meshGroup.children[0]);
     }
+  }
+
+  // Remove control point visualization
+  if (controlPointMeshes.length > 0) {
+    for (const controlPointMesh of controlPointMeshes) {
+      if (controlPointMesh.parent) meshGroup.remove(controlPointMesh);
+      controlPointMesh.geometry.dispose();
+      controlPointMesh.material.dispose();
+    }
+    controlPointMeshes = []; // Clear the array
   }
 
   // Reset UI state
@@ -700,8 +894,12 @@ function loadDefaultSTL() {
         originalGeometry.center();
         originalGeometry.computeBoundingSphere();
         // Reset any previous deformations
-        deformedGeometries = { noise: null, sine: null, pixel: null };
+        deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
         originalFileName = defaultPath; // Set default file name
+
+        // Update adaptive parameter ranges based on model size
+        updateAdaptiveParameterRanges();
+
         // Show the original mesh immediately
         updateSceneMeshes();
         // Enable processing now that a model is present
@@ -732,6 +930,11 @@ function setupControlPanels() {
     currentModelKey === "sine" ? "block" : "none";
   document.getElementById("pixelControls").style.display =
     currentModelKey === "pixel" ? "block" : "none";
+  document.getElementById("idwControls").style.display =
+    currentModelKey === "idw" ? "block" : "none";
+
+  // Update control point visualization
+  updateControlPointVisualization();
 }
 
 function setupParameterControls() {
@@ -793,6 +996,83 @@ function setupParameterControls() {
     deformParams.pixel.axis = e.target.value;
     updateHandler("pixel");
   });
+
+  // IDW CONTROLS
+  document.getElementById("idwNumPoints").addEventListener("input", (e) => {
+    deformParams.idw.numPoints = parseInt(e.target.value);
+    document.getElementById("idwNumPointsVal").textContent = e.target.value;
+    updateHandler("idw");
+  });
+  document.getElementById("idwSeed").addEventListener("input", (e) => {
+    const seedValue = parseInt(e.target.value) || 0;
+    deformParams.idw.seed = Math.max(0, Math.min(10000, seedValue)); // Clamp to valid range
+    e.target.value = deformParams.idw.seed; // Update input value
+    document.getElementById("idwSeedVal").textContent = deformParams.idw.seed;
+    updateHandler("idw");
+  });
+  document.getElementById("idwWeight").addEventListener("input", (e) => {
+    deformParams.idw.weight = parseFloat(e.target.value);
+    document.getElementById("idwWeightVal").textContent = e.target.value;
+    updateHandler("idw");
+  });
+  document.getElementById("idwPower").addEventListener("input", (e) => {
+    deformParams.idw.power = parseFloat(e.target.value);
+    document.getElementById("idwPowerVal").textContent = e.target.value;
+    updateHandler("idw");
+  });
+  document.getElementById("idwScale").addEventListener("input", (e) => {
+    deformParams.idw.scale = parseFloat(e.target.value);
+    document.getElementById("idwScaleVal").textContent = e.target.value;
+    updateHandler("idw");
+  });
+}
+
+// Update parameter ranges based on model size to prevent exponential effects
+function updateAdaptiveParameterRanges() {
+  if (!originalGeometry || !originalGeometry.boundingBox) return;
+
+  const bbox = originalGeometry.boundingBox;
+  const sizeX = bbox.max.x - bbox.min.x;
+  const sizeY = bbox.max.y - bbox.min.y;
+  const sizeZ = bbox.max.z - bbox.min.z;
+  const maxDimension = Math.max(sizeX, sizeY, sizeZ);
+
+  // Adaptive ranges based on model size
+  // Smaller models need smaller ranges to avoid exponential effects
+  // Larger models need larger ranges to have visible effects
+
+  // Scale factor: normalize to a "medium" model size of ~100 units
+  const scaleFactor = Math.max(0.1, maxDimension / 100);
+
+  // Update IDW parameter ranges - make them more aggressive
+  const idwWeightInput = document.getElementById("idwWeight");
+  const idwScaleInput = document.getElementById("idwScale");
+
+  if (idwWeightInput) {
+    const weightRange = 10 * scaleFactor; // Increased from 5
+    idwWeightInput.min = (-weightRange).toFixed(1);
+    idwWeightInput.max = weightRange.toFixed(1);
+    // Keep current value within new range
+    const currentWeight = deformParams.idw.weight;
+    deformParams.idw.weight = Math.max(parseFloat(idwWeightInput.min),
+                                       Math.min(parseFloat(idwWeightInput.max), currentWeight));
+    idwWeightInput.value = deformParams.idw.weight;
+    document.getElementById("idwWeightVal").textContent = deformParams.idw.weight;
+  }
+
+  if (idwScaleInput) {
+    const scaleRange = 15 * scaleFactor; // Increased from 5
+    idwScaleInput.min = (0.5 * scaleFactor).toFixed(1); // Increased minimum
+    idwScaleInput.max = scaleRange.toFixed(1);
+    // Keep current value within new range
+    const currentScale = deformParams.idw.scale;
+    deformParams.idw.scale = Math.max(parseFloat(idwScaleInput.min),
+                                      Math.min(parseFloat(idwScaleInput.max), currentScale));
+    idwScaleInput.value = deformParams.idw.scale;
+    document.getElementById("idwScaleVal").textContent = deformParams.idw.scale;
+  }
+
+  console.log(`Updated IDW parameter ranges for model size ${maxDimension.toFixed(2)}: weight ±${idwWeightInput?.max || 'N/A'}, scale ${idwScaleInput?.min || 'N/A'} - ${idwScaleInput?.max || 'N/A'}`);
 }
 
 function parseSTL(arrayBuffer) {
@@ -805,7 +1085,11 @@ function parseSTL(arrayBuffer) {
 
   originalGeometry.computeBoundingSphere();
   // Clear any old deformed models when a new file is loaded
-  deformedGeometries = { noise: null, sine: null, pixel: null };
+  deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
+
+  // Update adaptive parameter ranges based on model size
+  updateAdaptiveParameterRanges();
+
   console.log(
     "STL Loaded. Vertices:",
     originalGeometry.attributes.position.count,
@@ -817,6 +1101,14 @@ async function generateCurrent() {
 
   try {
     statusDisplay.update(`Processing ${currentModelKey} deformation...`, true);
+
+    // Special handling for IDW: generate control points
+    let params = { ...deformParams[currentModelKey] };
+    if (currentModelKey === 'idw') {
+      const controlPoints = generateIDWControlPoints();
+      params.controlPoints = controlPoints;
+      console.log(`Using ${controlPoints.length} control points for IDW deformation`);
+    }
 
     // Set up progress callback
     workerPool.setProgressCallback((completed, total) => {
@@ -830,7 +1122,7 @@ async function generateCurrent() {
     // Use worker pool for parallel processing
     const deformedGeometry = await workerPool.deformVertices(
       currentModelKey,
-      deformParams[currentModelKey],
+      params,
       originalGeometry
     );
 
@@ -902,6 +1194,57 @@ function updateSceneMeshes() {
     });
     const mesh = new THREE.Mesh(geometryToDraw, material);
     meshGroup.add(mesh);
+  }
+
+  // Update control point visualization after mesh update
+  updateControlPointVisualization();
+}
+
+// Control point visualization
+let controlPointMeshes = []; // Array to hold multiple control point visualizations
+
+function updateControlPointVisualization() {
+  // Remove existing control points
+  for (const controlPointMesh of controlPointMeshes) {
+    if (controlPointMesh.parent) {
+      meshGroup.remove(controlPointMesh);
+    }
+    controlPointMesh.geometry.dispose();
+    controlPointMesh.material.dispose();
+  }
+  controlPointMeshes = [];
+
+  // Only show control points for IDW deformation
+  if (currentModelKey !== 'idw' || idwControlPoints.length === 0) return;
+
+  // Calculate sphere size based on model dimensions (5% of longest axis)
+  let sphereRadius = 0.3; // Default fallback
+  if (originalGeometry && originalGeometry.boundingBox) {
+    const bbox = originalGeometry.boundingBox;
+    const sizeX = bbox.max.x - bbox.min.x;
+    const sizeY = bbox.max.y - bbox.min.y;
+    const sizeZ = bbox.max.z - bbox.min.z;
+    const maxDimension = Math.max(sizeX, sizeY, sizeZ);
+    sphereRadius = maxDimension * 0.05; // 5% of longest axis
+  }
+
+  // Create control point spheres for each control point
+  for (let i = 0; i < idwControlPoints.length; i++) {
+    const controlPoint = idwControlPoints[i];
+
+    const geometry = new THREE.SphereGeometry(sphereRadius, 8, 8);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xff4444,
+      transparent: true,
+      opacity: 0.6,
+      wireframe: true
+    });
+
+    const sphere = new THREE.Mesh(geometry, material);
+    sphere.position.set(controlPoint.x, controlPoint.y, controlPoint.z);
+
+    meshGroup.add(sphere);
+    controlPointMeshes.push(sphere);
   }
 }
 
@@ -1104,6 +1447,111 @@ function pixelateShape(geom) {
   geom.computeBoundingBox();
   geom.computeBoundingSphere();
   return geom;
+}
+
+function idwShape(geom) {
+  const positionAttribute = geom.getAttribute("position");
+  const arr = positionAttribute.array;
+  const count = positionAttribute.count;
+
+  const { numPoints, seed, weight, power, scale } = deformParams.idw;
+
+  // IDW deformation logic
+  for (let i = 0; i < count; i++) {
+    const dx = arr[i * 3] - pointX;
+    const dy = arr[i * 3 + 1] - pointY;
+    const dz = arr[i * 3 + 2] - pointZ;
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+    // Avoid division by zero
+    if (distance === 0) continue;
+
+    // Inverse distance weighting
+    const idw = weight / Math.pow(distance, power);
+
+    // Apply deformation
+    arr[i * 3] += dx * idw * scale;
+    arr[i * 3 + 1] += dy * idw * scale;
+    arr[i * 3 + 2] += dz * idw * scale;
+  }
+
+  positionAttribute.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+// Global storage for IDW control points
+let idwControlPoints = [];
+
+// Generate IDW control points using Poisson disk sampling
+function generateIDWControlPoints() {
+  if (!originalGeometry || !originalGeometry.boundingBox) {
+    console.warn('No geometry available for control point generation');
+    return [];
+  }
+
+  const bbox = originalGeometry.boundingBox;
+  const sizeX = bbox.max.x - bbox.min.x;
+  const sizeY = bbox.max.y - bbox.min.y;
+  const sizeZ = bbox.max.z - bbox.min.z;
+  const maxDimension = Math.max(sizeX, sizeY, sizeZ);
+
+  // Minimum distance between points (adaptive to model size, smaller for more points)
+  const minDistance = maxDimension * 0.08; // 8% of largest dimension for denser packing
+  const maxSamples = deformParams.idw.numPoints;
+
+  // Create sampler with current seed
+  const sampler = new PoissonSampler(deformParams.idw.seed);
+
+  // Generate MANY more candidates to ensure we find enough inside points
+  let samples = sampler.generateSamples(minDistance, maxSamples * 10, bbox); // Generate 10x more candidates
+
+  // Filter to only include points inside the mesh volume
+  const insideSamples = sampler.filterInsideVolume(samples, originalGeometry);
+
+  console.log(`Generated ${samples.length} candidates, found ${insideSamples.length} inside mesh volume`);
+
+  // If we still don't have enough inside samples, try with smaller minimum distance
+  let controlPoints = [...insideSamples];
+  if (controlPoints.length < maxSamples) {
+    console.warn(`Only found ${controlPoints.length} points inside mesh volume, trying with smaller spacing...`);
+    const smallerMinDistance = minDistance * 0.5;
+    const additionalSamples = sampler.generateSamples(smallerMinDistance, maxSamples * 5, bbox);
+    const additionalInside = sampler.filterInsideVolume(additionalSamples, originalGeometry);
+    controlPoints = [...new Set([...controlPoints, ...additionalInside])]; // Remove duplicates
+  }
+
+  // Take up to the requested number of points
+  controlPoints = controlPoints.slice(0, maxSamples);
+
+  // If still not enough, add fallback points distributed throughout the volume
+  while (controlPoints.length < maxSamples) {
+    // Create points at different depths within the mesh
+    const depth = (controlPoints.length / maxSamples) * 0.8 + 0.1; // 0.1 to 0.9 depth
+    const centerX = (bbox.min.x + bbox.max.x) * 0.5;
+    const centerY = (bbox.min.y + bbox.max.y) * 0.5;
+    const centerZ = (bbox.min.z + bbox.max.z) * 0.5;
+
+    // Add random offset scaled by depth
+    const offsetScale = maxDimension * depth * 0.3;
+    const random1 = Math.sin(deformParams.idw.seed + controlPoints.length * 123.45) * 0.5 + 0.5;
+    const random2 = Math.sin(deformParams.idw.seed + controlPoints.length * 678.90) * 0.5 + 0.5;
+    const random3 = Math.sin(deformParams.idw.seed + controlPoints.length * 111.11) * 0.5 + 0.5;
+    const fallbackPoint = {
+      x: centerX + (random1 - 0.5) * offsetScale,
+      y: centerY + (random2 - 0.5) * offsetScale,
+      z: centerZ + (random3 - 0.5) * offsetScale
+    };
+
+    controlPoints.push(fallbackPoint);
+    if (controlPoints.length >= maxSamples) break;
+  }
+
+  idwControlPoints = controlPoints;
+  console.log(`Final: ${controlPoints.length} IDW control points for deformation`);
+  return controlPoints;
 }
 
 // Start the application
