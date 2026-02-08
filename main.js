@@ -1713,10 +1713,10 @@ function updateSceneMeshes() {
   const solidColor = isDeformed ? 0xcc5050 : 0x5078c8;
   const wireColor = isDeformed ? 0xff6464 : 0x6496ff;
 
-  // Update camera limits and fit view only when geometry changes
+  // Update camera limits only when geometry changes (do not reset view)
   const geometryChanged = geometryToDraw !== lastGeometryForView;
-  updateCameraForGeometry(geometryToDraw, geometryChanged);
   if (geometryChanged) {
+    updateCameraForGeometry(geometryToDraw, false);
     lastGeometryForView = geometryToDraw;
   }
 
