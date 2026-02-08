@@ -228,6 +228,9 @@ let originalFileName = null; // Track original file name for settings export
 // UI elements and parameters
 let processBtn, statusElement, exportBtn, toggleView, renderMode, clearBtn;
 let meshGroup; // Group to hold the visible THREE.js meshes
+let solidMesh = null;
+let wireMesh = null;
+let lastGeometryForView = null;
 
 let workerPool; // Worker pool for parallel processing
 
@@ -844,6 +847,10 @@ function setupListeners() {
   // View Controls
   toggleView.addEventListener("change", updateSceneMeshes);
   renderMode.addEventListener("change", updateSceneMeshes);
+  const resetViewBtn = document.getElementById("resetViewBtn");
+  if (resetViewBtn) {
+    resetViewBtn.onclick = () => resetViewToCurrentGeometry();
+  }
 }
 
 function clearModelAndUI() {
@@ -863,6 +870,9 @@ function clearModelAndUI() {
       meshGroup.remove(child);
     }
   }
+  solidMesh = null;
+  wireMesh = null;
+  lastGeometryForView = null;
 
   // Remove control point visualization
   if (controlPointMeshes.length > 0) {
@@ -897,6 +907,8 @@ function loadDefaultSTL() {
         originalGeometry = geometry.clone();
         originalGeometry.computeBoundingBox();
         originalGeometry.center();
+        // Recompute bounds after centering
+        originalGeometry.computeBoundingBox();
         originalGeometry.computeBoundingSphere();
         // Reset any previous deformations
         deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
@@ -1088,6 +1100,8 @@ function parseSTL(arrayBuffer) {
   // FIX: Center the geometry so it sits at the world origin (0,0,0)
   originalGeometry.center();
 
+  // Recompute bounds after centering
+  originalGeometry.computeBoundingBox();
   originalGeometry.computeBoundingSphere();
   // Clear any old deformed models when a new file is loaded
   deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
@@ -1155,17 +1169,35 @@ function disposeMeshMaterial(mesh) {
   if (typeof material.dispose === "function") material.dispose();
 }
 
-function updateSceneMeshes() {
-  // Clears the mesh group using compatibility loop
-  const controlPointSet = new Set(controlPointMeshes);
-  while (meshGroup.children.length > 0) {
-    const child = meshGroup.children[0];
-    if (child && child.isMesh && !controlPointSet.has(child)) {
-      disposeMeshMaterial(child);
-    }
-    meshGroup.remove(child);
+function updateCameraForGeometry(geometry, forceReset = false) {
+  if (!geometry) return;
+  geometry.computeBoundingSphere();
+  const radius = geometry.boundingSphere?.radius || 1;
+  const safeRadius = Math.max(radius, 0.001);
+
+  if (controls) {
+    controls.minDistance = safeRadius * 0.3;
+    controls.maxDistance = safeRadius * 10;
   }
 
+  if (forceReset) {
+    camera.position.set(0, 0, safeRadius * 2.5);
+    if (controls) {
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+  }
+}
+
+function resetViewToCurrentGeometry() {
+  const showDeformed = toggleView && toggleView.checked;
+  const deformedExists = deformedGeometries[currentModelKey];
+  const geometryToDraw = showDeformed && deformedExists ? deformedExists : originalGeometry;
+  if (!geometryToDraw) return;
+  updateCameraForGeometry(geometryToDraw, true);
+}
+
+function updateSceneMeshes() {
   // Determine which geometry to show
   const showDeformed = toggleView.checked;
   const deformedExists = deformedGeometries[currentModelKey];
@@ -1176,7 +1208,11 @@ function updateSceneMeshes() {
     geometryToDraw = deformedExists;
   }
 
-  if (!geometryToDraw) return;
+  if (!geometryToDraw) {
+    if (solidMesh) solidMesh.visible = false;
+    if (wireMesh) wireMesh.visible = false;
+    return;
+  }
 
   const mode = renderMode.value;
   const isDeformed = geometryToDraw === deformedExists;
@@ -1184,38 +1220,57 @@ function updateSceneMeshes() {
   const solidColor = isDeformed ? 0xcc5050 : 0x5078c8;
   const wireColor = isDeformed ? 0xff6464 : 0x6496ff;
 
-  // Auto-fit to view
-  geometryToDraw.computeBoundingSphere();
-  const radius = geometryToDraw.boundingSphere.radius;
-  camera.position.set(0, 0, radius * 2.5);
-  if (controls) {
-    controls.target.set(0, 0, 0);
-    controls.update();
+  // Update camera limits and fit view only when geometry changes
+  const geometryChanged = geometryToDraw !== lastGeometryForView;
+  updateCameraForGeometry(geometryToDraw, geometryChanged);
+  if (geometryChanged) {
+    lastGeometryForView = geometryToDraw;
   }
 
   // SOLID MESH
   if (mode === "solid" || mode === "both") {
-    const material = new THREE.MeshPhongMaterial({
-      color: solidColor,
-      shininess: 30,
-      transparent: true,
-      opacity: 0.9,
-      side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geometryToDraw, material);
-    meshGroup.add(mesh);
+    if (!solidMesh) {
+      const material = new THREE.MeshPhongMaterial({
+        color: solidColor,
+        shininess: 30,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide,
+      });
+      solidMesh = new THREE.Mesh(geometryToDraw, material);
+      meshGroup.add(solidMesh);
+    } else {
+      solidMesh.geometry = geometryToDraw;
+      solidMesh.material.color.setHex(solidColor);
+      solidMesh.material.opacity = 0.9;
+      solidMesh.material.side = THREE.DoubleSide;
+    }
+    solidMesh.visible = true;
+  } else if (solidMesh) {
+    solidMesh.visible = false;
   }
 
   // WIREFRAME MESH (Draws on top for 'both' mode)
   if (mode === "wireframe" || mode === "both") {
-    const material = new THREE.MeshBasicMaterial({
-      color: wireColor,
-      wireframe: true,
-      transparent: true,
-      opacity: mode === "both" ? 0.8 : 1.0,
-    });
-    const mesh = new THREE.Mesh(geometryToDraw, material);
-    meshGroup.add(mesh);
+    const wireOpacity = mode === "both" ? 0.8 : 1.0;
+    if (!wireMesh) {
+      const material = new THREE.MeshBasicMaterial({
+        color: wireColor,
+        wireframe: true,
+        transparent: true,
+        opacity: wireOpacity,
+      });
+      wireMesh = new THREE.Mesh(geometryToDraw, material);
+      meshGroup.add(wireMesh);
+    } else {
+      wireMesh.geometry = geometryToDraw;
+      wireMesh.material.color.setHex(wireColor);
+      wireMesh.material.opacity = wireOpacity;
+      wireMesh.material.wireframe = true;
+    }
+    wireMesh.visible = true;
+  } else if (wireMesh) {
+    wireMesh.visible = false;
   }
 
   // Update control point visualization after mesh update
@@ -1471,30 +1526,53 @@ function pixelateShape(geom) {
   return geom;
 }
 
-function idwShape(geom) {
+function idwShape(geom, params = null) {
   const positionAttribute = geom.getAttribute("position");
   const arr = positionAttribute.array;
   const count = positionAttribute.count;
 
-  const { numPoints, seed, weight, power, scale } = deformParams.idw;
+  const mergedParams = params || deformParams.idw;
+  const controlPoints = mergedParams.controlPoints || [];
+  const weight = mergedParams.weight ?? deformParams.idw.weight;
+  const power = mergedParams.power ?? deformParams.idw.power;
+  const scale = mergedParams.scale ?? deformParams.idw.scale;
 
-  // IDW deformation logic
+  if (controlPoints.length === 0) {
+    console.warn("No control points provided for IDW deformation");
+    return geom;
+  }
+
+  // IDW deformation logic aligned with worker implementation
   for (let i = 0; i < count; i++) {
-    const dx = arr[i * 3] - pointX;
-    const dy = arr[i * 3 + 1] - pointY;
-    const dz = arr[i * 3 + 2] - pointZ;
-    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const vx = arr[i * 3];
+    const vy = arr[i * 3 + 1];
+    const vz = arr[i * 3 + 2];
 
-    // Avoid division by zero
-    if (distance === 0) continue;
+    let totalDisplacementX = 0;
+    let totalDisplacementY = 0;
+    let totalDisplacementZ = 0;
 
-    // Inverse distance weighting
-    const idw = weight / Math.pow(distance, power);
+    for (const controlPoint of controlPoints) {
+      const dx = controlPoint.x - vx;
+      const dy = controlPoint.y - vy;
+      const dz = controlPoint.z - vz;
+      const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const safeDistance = Math.max(distance, 0.001);
 
-    // Apply deformation
-    arr[i * 3] += dx * idw * scale;
-    arr[i * 3 + 1] += dy * idw * scale;
-    arr[i * 3 + 2] += dz * idw * scale;
+      const idwWeight = Math.abs(weight) / Math.pow(safeDistance, power);
+      const nx = dx / safeDistance;
+      const ny = dy / safeDistance;
+      const nz = dz / safeDistance;
+
+      const displacementScale = idwWeight * scale * Math.sign(weight);
+      totalDisplacementX += nx * displacementScale;
+      totalDisplacementY += ny * displacementScale;
+      totalDisplacementZ += nz * displacementScale;
+    }
+
+    arr[i * 3] += totalDisplacementX;
+    arr[i * 3 + 1] += totalDisplacementY;
+    arr[i * 3 + 2] += totalDisplacementZ;
   }
 
   positionAttribute.needsUpdate = true;
