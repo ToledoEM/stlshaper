@@ -854,8 +854,13 @@ function clearModelAndUI() {
 
   // Clear meshes from scene
   if (meshGroup) {
+    const controlPointSet = new Set(controlPointMeshes);
     while (meshGroup.children.length > 0) {
-      meshGroup.remove(meshGroup.children[0]);
+      const child = meshGroup.children[0];
+      if (child && child.isMesh && !controlPointSet.has(child)) {
+        disposeMeshMaterial(child);
+      }
+      meshGroup.remove(child);
     }
   }
 
@@ -1138,10 +1143,27 @@ async function generateCurrent() {
 }
 
 // --- THREE.js Rendering Logic ---
+function disposeMeshMaterial(mesh) {
+  const material = mesh?.material;
+  if (!material) return;
+  if (Array.isArray(material)) {
+    for (const mat of material) {
+      if (mat && typeof mat.dispose === "function") mat.dispose();
+    }
+    return;
+  }
+  if (typeof material.dispose === "function") material.dispose();
+}
+
 function updateSceneMeshes() {
   // Clears the mesh group using compatibility loop
+  const controlPointSet = new Set(controlPointMeshes);
   while (meshGroup.children.length > 0) {
-    meshGroup.remove(meshGroup.children[0]);
+    const child = meshGroup.children[0];
+    if (child && child.isMesh && !controlPointSet.has(child)) {
+      disposeMeshMaterial(child);
+    }
+    meshGroup.remove(child);
   }
 
   // Determine which geometry to show
