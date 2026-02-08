@@ -3,7 +3,7 @@
 
 *This is under constant development*
 
-This project demonstrates a real-time STL deformation tool using Three.js and p5.js. It allows you to load an STL file, apply various deformation effects (Noise, Sine Wave, Pixelate, IDW Shepard), and visualize the deformed model. It's a tool for pushing the boundaries of what you expect from a 3D model. The goal is to create subtly unsettling, oddly beautiful, and deliberately weird transformations of STL objects. Think of it as a digital sculpting playground.
+This project demonstrates a real-time STL deformation tool using Three.js. It allows you to load an STL file, apply various deformation effects (Noise, Sine Wave, Pixelate, IDW Shepard, plus advanced and topology-altering methods), and visualize the deformed model. It's a tool for pushing the boundaries of what you expect from a 3D model. The goal is to create subtly unsettling, oddly beautiful, and deliberately weird transformations of STL objects. Think of it as a digital sculpting playground.
 
 Transform your 3D models into something unexpected, unsettling, and strangely beautiful. This experimental tool lets you push the boundaries of what's possible with STL files, creating deliberate distortions and abstract variations of your models. Think of it as a digital sculpture lab where mathematical chaos meets artistic expression.
 
@@ -26,11 +26,15 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
   - **Sine Wave**: Generates a sinusoidal wave deformation, producing rhythmic, flowing changes – potentially creating mesmerizing, pulsating effects.
   - **Pixelate**: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.
   - **IDW Shepard**: Advanced organic deformation using multiple control points distributed throughout the model's volume via Poisson disk sampling. Creates natural, flowing transformations with localized influence areas.
+  - **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.
+  - **Tessellate / Boundary Disruption / Menger Sponge**: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.
 - **Real-time Deformation**: Updates the deformation in real-time, allowing for interactive experimentation.
 - **Parameter Controls**: Interactive sliders and checkboxes for adjusting deformation parameters.
 - **Adaptive Parameter Ranges**: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.
 - **Visual Feedback**: Displays the deformed model in 3D space with control point visualization for IDW deformation.
 - **Parallel Processing**: Uses Web Workers for efficient processing of large STL files with thousands of vertices.
+- **Preprocess Options**: Optional cleanup before deformation. Decimate keeps a percentage of triangles (faster but less detail), and Vertex Merge collapses near-identical vertices within an epsilon (reduces duplicates and can stabilize deformations). Not required for most models, but helpful for very dense STLs or when you need faster iteration.
+- **Stats HUD**: Displays vertex/triangle counts and deformation time.
 - **Export**: Exports the deformed model as an STL file – save your weird creations!
 
 ## Deformation Examples
@@ -58,6 +62,8 @@ The IDW (Inverse Distance Weighting) Shepard deformation represents a significan
 - **Poisson Disk Sampling**: Control points are distributed using Poisson disk sampling to ensure even coverage and prevent clustering
 - **Volume-Constrained Placement**: All control points are guaranteed to be inside the mesh volume, not just within the bounding box
 - **Seed-Based Generation**: Deterministic point placement using a numeric seed for reproducible results
+- **Manual Control Points**: Optional manual list of control points (supports single-point or multi-point inputs)
+- **Sampling Rays Control**: Adjust inside-mesh sampling rays to balance speed and robustness
 - **Adaptive Influence**: Each control point exerts influence based on inverse distance weighting with customizable power falloff
 - **Visual Feedback**: Red wireframe spheres show the location and influence areas of all control points
 - **Scalable Effects**: Parameter ranges automatically adjust based on model size to prevent over/under-deformation
@@ -71,8 +77,7 @@ The IDW (Inverse Distance Weighting) Shepard deformation represents a significan
 
 *   **Web Browser:**  A modern web browser with Web Worker support (Chrome 4+, Firefox 3.5+, Safari 4+, Edge)
 *   **JavaScript:**  ES6+ features supported by your browser
-*   **Three.js:** Version 128 or later.  This project uses Three.js for 3D rendering and ray casting.
-*   **p5.js:** Version 1.7.0 or later.  Used for the control panel and UI elements.
+*   **Three.js:** r121 (bundled).  This project uses Three.js for 3D rendering and ray casting.
 *   **FileSaver.js:** (Included) For exporting the STL file.
 *   **Web Workers:** Required for parallel processing of large deformations, especially IDW with multiple control points.
 
@@ -142,7 +147,5 @@ The IDW (Inverse Distance Weighting) Shepard deformation represents a significan
 *   This is a basic demonstration and can be extended with more advanced features.
 *   The performance of the deformation can depend on the complexity of the STL model and the chosen deformation algorithm.
 *   The rendering is slow
-*   Post-procesing is needed in meshlab: Filters -> Cleaning and Repairing ->> Remove Zero Area Faces, Remove Zero Area Faces, Repair Non-manifold Edges(split)
+*   Post-procesing is (or can be) needed in meshlab: Filters -> Cleaning and Repairing ->> Remove Zero Area Faces, Remove Zero Area Faces, Repair Non-manifold Edges(split)
 *   IDW Shepard deformation works best with solid, manifold meshes. Complex or thin-walled models may produce unexpected results.
-
-

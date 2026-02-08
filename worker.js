@@ -109,6 +109,9 @@ function sineDeformShape(vertices, params) {
 function pixelateShape(vertices, params) {
   const pixelSize = params.size;
   const axisMode = params.axis;
+  if (!pixelSize || pixelSize <= 0 || vertices.length === 0) {
+    return vertices;
+  }
 
   const allowX = axisMode.includes("x") || axisMode === "all";
   const allowY = axisMode.includes("y") || axisMode === "all";
@@ -124,6 +127,191 @@ function pixelateShape(vertices, params) {
     if (allowZ) vertices[i + 2] = Math.round(z / pixelSize) * pixelSize;
   }
 
+  return vertices;
+}
+
+function inflateShape(vertices, params, bbox) {
+  const amount = params.amount ?? 0.6;
+  if (!bbox) return vertices;
+  const center = {
+    x: (bbox.min.x + bbox.max.x) * 0.5,
+    y: (bbox.min.y + bbox.max.y) * 0.5,
+    z: (bbox.min.z + bbox.max.z) * 0.5
+  };
+  const size = {
+    x: bbox.max.x - bbox.min.x,
+    y: bbox.max.y - bbox.min.y,
+    z: bbox.max.z - bbox.min.z
+  };
+  const maxRadius = Math.max(size.x, size.y, size.z) * 0.5 || 1;
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    const dx = vertices[i] - center.x;
+    const dy = vertices[i + 1] - center.y;
+    const dz = vertices[i + 2] - center.z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+    const scale = 1 + (amount * (dist / maxRadius));
+    vertices[i] = center.x + dx * scale;
+    vertices[i + 1] = center.y + dy * scale;
+    vertices[i + 2] = center.z + dz * scale;
+  }
+  return vertices;
+}
+
+function twistShape(vertices, params, bbox) {
+  const axis = params.axis || "y";
+  const angleDeg = params.angle ?? 180;
+  const angle = angleDeg * (Math.PI / 180);
+  const min = bbox.min[axis];
+  const max = bbox.max[axis];
+  const range = max - min || 1;
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+    const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
+    const theta = t * angle;
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+
+    if (axis === "x") {
+      vertices[i + 1] = y * cos - z * sin;
+      vertices[i + 2] = y * sin + z * cos;
+    } else if (axis === "y") {
+      vertices[i] = x * cos - z * sin;
+      vertices[i + 2] = x * sin + z * cos;
+    } else {
+      vertices[i] = x * cos - y * sin;
+      vertices[i + 1] = x * sin + y * cos;
+    }
+  }
+
+  return vertices;
+}
+
+function bendShape(vertices, params, bbox) {
+  const axis = params.axis || "y";
+  const strength = params.strength ?? 0.8;
+  const angleScale = strength * Math.PI;
+  const min = bbox.min[axis];
+  const max = bbox.max[axis];
+  const range = max - min || 1;
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    let x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+    const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
+    const theta = t * angleScale;
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+
+    if (axis === "x") {
+      const nx = x * cos - y * sin;
+      const ny = x * sin + y * cos;
+      x = nx; y = ny;
+    } else if (axis === "y") {
+      const ny = y * cos - z * sin;
+      const nz = y * sin + z * cos;
+      y = ny; z = nz;
+    } else {
+      const nx = x * cos - z * sin;
+      const nz = x * sin + z * cos;
+      x = nx; z = nz;
+    }
+
+    vertices[i] = x;
+    vertices[i + 1] = y;
+    vertices[i + 2] = z;
+  }
+
+  return vertices;
+}
+
+function rippleShape(vertices, params, bbox) {
+  const axis = params.axis || "y";
+  const amplitude = params.amplitude ?? 4;
+  const frequency = params.frequency ?? 0.3;
+  const center = {
+    x: (bbox.min.x + bbox.max.x) * 0.5,
+    y: (bbox.min.y + bbox.max.y) * 0.5,
+    z: (bbox.min.z + bbox.max.z) * 0.5
+  };
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+    let r = 0;
+    if (axis === "x") {
+      r = Math.sqrt((y - center.y) ** 2 + (z - center.z) ** 2);
+      vertices[i] = x + Math.sin(r * frequency) * amplitude;
+    } else if (axis === "y") {
+      r = Math.sqrt((x - center.x) ** 2 + (z - center.z) ** 2);
+      vertices[i + 1] = y + Math.sin(r * frequency) * amplitude;
+    } else {
+      r = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+      vertices[i + 2] = z + Math.sin(r * frequency) * amplitude;
+    }
+  }
+
+  return vertices;
+}
+
+function warpShape(vertices, params) {
+  const strength = params.strength ?? 1.0;
+  const scale = params.scale ?? 0.2;
+  for (let i = 0; i < vertices.length; i += 3) {
+    const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+    vertices[i] = x + Math.sin(y * scale) * strength;
+    vertices[i + 1] = y + Math.sin(z * scale) * strength;
+    vertices[i + 2] = z + Math.sin(x * scale) * strength;
+  }
+  return vertices;
+}
+
+function hyperShape(vertices, params, bbox) {
+  const axis = params.axis || "y";
+  const amount = params.amount ?? 0.6;
+  const min = bbox.min[axis];
+  const max = bbox.max[axis];
+  const range = max - min || 1;
+  const center = (min + max) * 0.5;
+  const denom = Math.sinh(amount) || 1;
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    let v = axis === "x" ? vertices[i] : axis === "y" ? vertices[i + 1] : vertices[i + 2];
+    const t = (v - center) / range;
+    const stretched = Math.sinh(t * amount) / denom;
+    v = center + stretched * range;
+    if (axis === "x") vertices[i] = v;
+    else if (axis === "y") vertices[i + 1] = v;
+    else vertices[i + 2] = v;
+  }
+  return vertices;
+}
+
+function boundaryDisruptShape(vertices, params, bbox) {
+  const threshold = params.threshold ?? 0.08;
+  const jitter = params.jitter ?? 2.0;
+  const size = {
+    x: bbox.max.x - bbox.min.x,
+    y: bbox.max.y - bbox.min.y,
+    z: bbox.max.z - bbox.min.z
+  };
+  const epsX = size.x * threshold;
+  const epsY = size.y * threshold;
+  const epsZ = size.z * threshold;
+  const hash = (x, y, z) =>
+    Math.abs(Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1;
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+    const near =
+      Math.abs(x - bbox.min.x) < epsX || Math.abs(x - bbox.max.x) < epsX ||
+      Math.abs(y - bbox.min.y) < epsY || Math.abs(y - bbox.max.y) < epsY ||
+      Math.abs(z - bbox.min.z) < epsZ || Math.abs(z - bbox.max.z) < epsZ;
+    if (!near) continue;
+    const r = (hash(x, y, z) - 0.5) * 2;
+    vertices[i] = x + r * jitter;
+    vertices[i + 1] = y + r * jitter;
+    vertices[i + 2] = z + r * jitter;
+  }
   return vertices;
 }
 
@@ -202,6 +390,27 @@ self.onmessage = function(e) {
           break;
         case 'idw':
           deformedVertices = idwShape(vertices, params);
+          break;
+        case 'inflate':
+          deformedVertices = inflateShape(vertices, params, bbox);
+          break;
+        case 'twist':
+          deformedVertices = twistShape(vertices, params, bbox);
+          break;
+        case 'bend':
+          deformedVertices = bendShape(vertices, params, bbox);
+          break;
+        case 'ripple':
+          deformedVertices = rippleShape(vertices, params, bbox);
+          break;
+        case 'warp':
+          deformedVertices = warpShape(vertices, params);
+          break;
+        case 'hyper':
+          deformedVertices = hyperShape(vertices, params, bbox);
+          break;
+        case 'boundary':
+          deformedVertices = boundaryDisruptShape(vertices, params, bbox);
           break;
         default:
           throw new Error(`Unknown deformation type: ${deformationType}`);

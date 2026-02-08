@@ -133,6 +133,15 @@
                 left: 0;
                 z-index: 1;
             }
+
+            #stats {
+                padding: 6px;
+                background: #333;
+                border-radius: 3px;
+                font-size: 0.8em;
+                color: #bbb;
+                line-height: 1.3em;
+            }
         </style>
     </head>
     <body>
@@ -181,6 +190,42 @@
                 <label
                     ><input type="radio" name="type" value="idw" />
                     IDW Shepard</label
+                >
+                <label
+                    ><input type="radio" name="type" value="inflate" />
+                    Inflate</label
+                >
+                <label
+                    ><input type="radio" name="type" value="twist" />
+                    Twist</label
+                >
+                <label
+                    ><input type="radio" name="type" value="bend" />
+                    Bend</label
+                >
+                <label
+                    ><input type="radio" name="type" value="ripple" />
+                    Ripple</label
+                >
+                <label
+                    ><input type="radio" name="type" value="warp" />
+                    Warp</label
+                >
+                <label
+                    ><input type="radio" name="type" value="hyper" />
+                    Hyperbolic Stretch</label
+                >
+                <label
+                    ><input type="radio" name="type" value="tessellate" />
+                    Tessellate</label
+                >
+                <label
+                    ><input type="radio" name="type" value="boundary" />
+                    Boundary Disruption</label
+                >
+                <label
+                    ><input type="radio" name="type" value="menger" />
+                    Menger Sponge</label
                 >
             </div>
 
@@ -364,6 +409,298 @@
                         step="0.1"
                     />
                 </label>
+                <label>
+                    Sampling Rays: <span id="idwRaysVal">6</span>
+                    <input
+                        type="range"
+                        id="idwRays"
+                        min="2"
+                        max="10"
+                        value="6"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    Manual Control Points:
+                    <input type="checkbox" id="idwManualPoints" />
+                </label>
+                <label>
+                    Points (x,y,z per line):
+                    <textarea id="idwPointsInput" rows="4" style="width:100%; background:#222; color:#ccc; border:1px solid #555; border-radius:3px;"></textarea>
+                </label>
+            </div>
+
+            <div
+                id="inflateControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Inflate Settings:</strong>
+                <label>
+                    Amount: <span id="inflateAmountVal">0.6</span>
+                    <input
+                        type="range"
+                        id="inflateAmount"
+                        min="0"
+                        max="2"
+                        value="0.6"
+                        step="0.05"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="twistControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Twist Settings:</strong>
+                <label>
+                    Angle (deg): <span id="twistAngleVal">180</span>
+                    <input
+                        type="range"
+                        id="twistAngle"
+                        min="-360"
+                        max="360"
+                        value="180"
+                        step="5"
+                    />
+                </label>
+                <label>
+                    Axis:
+                    <select id="twistAxis">
+                        <option value="y">Y Axis</option>
+                        <option value="x">X Axis</option>
+                        <option value="z">Z Axis</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="bendControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Bend Settings:</strong>
+                <label>
+                    Strength: <span id="bendStrengthVal">0.8</span>
+                    <input
+                        type="range"
+                        id="bendStrength"
+                        min="0"
+                        max="2"
+                        value="0.8"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    Axis:
+                    <select id="bendAxis">
+                        <option value="x">X Axis</option>
+                        <option value="y" selected>Y Axis</option>
+                        <option value="z">Z Axis</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="rippleControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Ripple Settings:</strong>
+                <label>
+                    Amplitude: <span id="rippleAmpVal">4</span>
+                    <input
+                        type="range"
+                        id="rippleAmp"
+                        min="0"
+                        max="20"
+                        value="4"
+                        step="0.5"
+                    />
+                </label>
+                <label>
+                    Frequency: <span id="rippleFreqVal">0.3</span>
+                    <input
+                        type="range"
+                        id="rippleFreq"
+                        min="0.05"
+                        max="2.0"
+                        value="0.3"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    Axis:
+                    <select id="rippleAxis">
+                        <option value="y">Y Axis</option>
+                        <option value="x">X Axis</option>
+                        <option value="z">Z Axis</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="warpControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Warp Settings:</strong>
+                <label>
+                    Strength: <span id="warpStrengthVal">1.0</span>
+                    <input
+                        type="range"
+                        id="warpStrength"
+                        min="0"
+                        max="3"
+                        value="1.0"
+                        step="0.1"
+                    />
+                </label>
+                <label>
+                    Scale: <span id="warpScaleVal">0.2</span>
+                    <input
+                        type="range"
+                        id="warpScale"
+                        min="0.01"
+                        max="1.0"
+                        value="0.2"
+                        step="0.01"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="hyperControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Hyperbolic Stretch Settings:</strong>
+                <label>
+                    Amount: <span id="hyperAmountVal">0.6</span>
+                    <input
+                        type="range"
+                        id="hyperAmount"
+                        min="-2"
+                        max="2"
+                        value="0.6"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    Axis:
+                    <select id="hyperAxis">
+                        <option value="y">Y Axis</option>
+                        <option value="x">X Axis</option>
+                        <option value="z">Z Axis</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="tessellateControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Tessellation Settings:</strong>
+                <label>
+                    Subdivisions: <span id="tessellateStepsVal">1</span>
+                    <input
+                        type="range"
+                        id="tessellateSteps"
+                        min="1"
+                        max="2"
+                        value="1"
+                        step="1"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="boundaryControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Boundary Disruption Settings:</strong>
+                <label>
+                    Threshold: <span id="boundaryThresholdVal">0.08</span>
+                    <input
+                        type="range"
+                        id="boundaryThreshold"
+                        min="0.01"
+                        max="0.3"
+                        value="0.08"
+                        step="0.01"
+                    />
+                </label>
+                <label>
+                    Jitter: <span id="boundaryJitterVal">2</span>
+                    <input
+                        type="range"
+                        id="boundaryJitter"
+                        min="0"
+                        max="10"
+                        value="2"
+                        step="0.5"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="mengerControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Menger Sponge Settings:</strong>
+                <label>
+                    Iterations: <span id="mengerIterationsVal">1</span>
+                    <input
+                        type="range"
+                        id="mengerIterations"
+                        min="1"
+                        max="3"
+                        value="1"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    Keep Ratio: <span id="mengerKeepVal">0.7</span>
+                    <input
+                        type="range"
+                        id="mengerKeep"
+                        min="0.3"
+                        max="1.0"
+                        value="0.7"
+                        step="0.05"
+                    />
+                </label>
+            </div>
+
+            <div class="deform-controls">
+                <strong>Preprocess:</strong>
+                <label>
+                    Decimate (% kept): <span id="decimateVal">100</span>
+                    <input
+                        type="range"
+                        id="decimate"
+                        min="10"
+                        max="100"
+                        value="100"
+                        step="5"
+                    />
+                </label>
+                <label>
+                    Vertex Merge Epsilon: <span id="mergeVal">0.0</span>
+                    <input
+                        type="range"
+                        id="mergeEpsilon"
+                        min="0"
+                        max="2"
+                        value="0"
+                        step="0.05"
+                    />
+                </label>
             </div>
 
             <div style="display:flex; gap:8px; align-items:center;">
@@ -392,6 +729,8 @@
 
             <button id="exportSettingsBtn" disabled>Export Settings</button>
 
+            <div id="stats">Stats: N/A</div>
+
             <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #555; text-align: center; font-size: 0.8em; color: #888;">
                 STLShaper <a href="https://toledoem.github.io/" target="_blank" style="color: #6cf; text-decoration: none;">ToledoEM</a>, MIT license
             </div>
@@ -399,11 +738,26 @@
 
         <div id="container"></div>
 
-        <script src="libraries/three.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r108/examples/js/controls/OrbitControls.js"></script>
+        <script type="module">
+            import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.121.1/build/three.module.js";
+            import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/controls/OrbitControls.js";
+            import { STLLoader } from "https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/loaders/STLLoader.js";
 
-        <script src="libraries/FileSaver.min.js"></script>
+            window.THREE = THREE;
+            window.OrbitControls = OrbitControls;
+            window.STLLoader = STLLoader;
 
-        <script src="main.js"></script>
+            const loadScript = (src) =>
+                new Promise((resolve, reject) => {
+                    const script = document.createElement("script");
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.body.appendChild(script);
+                });
+
+            await loadScript("libraries/FileSaver.min.js");
+            await loadScript("main.js");
+        </script>
     </body>
 </html>

@@ -1,6 +1,6 @@
-// --- STLLoader and STLExporter from THREE.js Examples (Preserved) ---
+// --- STLLoader and STLExporter (local fallbacks) ---
 
-THREE.STLLoader = class STLLoader {
+class LocalSTLLoader {
   load(url, onLoad, onProgress, onError) {
     const loader = new THREE.FileLoader();
     loader.setResponseType("arraybuffer");
@@ -95,9 +95,9 @@ THREE.STLLoader = class STLLoader {
     if (typeof buffer === "string") return buffer;
     return new TextDecoder().decode(buffer);
   }
-};
+}
 
-THREE.STLExporter = class STLExporter {
+class LocalSTLExporter {
   parse(scene, options = {}) {
     const binary = options.binary !== undefined ? options.binary : false;
     const objects = [];
@@ -196,7 +196,21 @@ THREE.STLExporter = class STLExporter {
     });
     return arrayBuffer;
   }
-};
+}
+
+function createSTLLoader() {
+  if (window.STLLoader) {
+    return new window.STLLoader();
+  }
+  return new LocalSTLLoader();
+}
+
+function createSTLExporter() {
+  if (window.STLExporter) {
+    return new window.STLExporter();
+  }
+  return new LocalSTLExporter();
+}
 
 // --- Placeholder Noise Function (Required for "noiseShape" deformation) ---
 // NOTE: For true Perlin/Simplex noise quality, you should use a library like 'simplex-noise.js'
@@ -221,12 +235,12 @@ let container = document.getElementById("container");
 // Core model storage
 let originalGeometry;
 // deformedGeometries holds the *result* of the deformation process
-let deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
+let deformedGeometries = {};
 let currentModelKey = "noise";
 let originalFileName = null; // Track original file name for settings export
 
 // UI elements and parameters
-let processBtn, statusElement, exportBtn, toggleView, renderMode, clearBtn;
+let processBtn, statusElement, exportBtn, toggleView, renderMode, clearBtn, statsElement;
 let meshGroup; // Group to hold the visible THREE.js meshes
 let solidMesh = null;
 let wireMesh = null;
@@ -238,14 +252,104 @@ let deformParams = {
   noise: { intensity: 1.5, scale: 0.02, axis: "all" },
   sine: { amplitude: 15, frequency: 0.05, driverAxis: "x", dispAxis: "x" },
   pixel: { size: 5, axis: "all" },
-  idw: { numPoints: 8, seed: 0, weight: 2.0, power: 2.0, scale: 2.0 }
+  idw: {
+    numPoints: 8,
+    seed: 0,
+    weight: 2.0,
+    power: 2.0,
+    scale: 2.0,
+    rays: 6,
+    manualPoints: false,
+    pointsText: ""
+  },
+  inflate: { amount: 0.6 },
+  twist: { angle: 180, axis: "y" },
+  bend: { strength: 0.8, axis: "y" },
+  ripple: { amplitude: 4, frequency: 0.3, axis: "y" },
+  warp: { strength: 1.0, scale: 0.2 },
+  hyper: { amount: 0.6, axis: "y" },
+  tessellate: { steps: 1 },
+  boundary: { threshold: 0.08, jitter: 2.0 },
+  menger: { iterations: 1, keepRatio: 0.7 }
 };
+
+const preprocessSettings = {
+  decimate: 100,
+  mergeEpsilon: 0
+};
+
+const deformationRegistry = [
+  { key: "noise", label: "Noise", controlsId: "noiseControls", usesWorker: true },
+  { key: "sine", label: "Sine Wave", controlsId: "sineControls", usesWorker: true },
+  { key: "pixel", label: "Pixelate", controlsId: "pixelControls", usesWorker: true },
+  { key: "idw", label: "IDW Shepard", controlsId: "idwControls", usesWorker: true },
+  { key: "inflate", label: "Inflate", controlsId: "inflateControls", usesWorker: true },
+  { key: "twist", label: "Twist", controlsId: "twistControls", usesWorker: true },
+  { key: "bend", label: "Bend", controlsId: "bendControls", usesWorker: true },
+  { key: "ripple", label: "Ripple", controlsId: "rippleControls", usesWorker: true },
+  { key: "warp", label: "Warp", controlsId: "warpControls", usesWorker: true },
+  { key: "hyper", label: "Hyperbolic Stretch", controlsId: "hyperControls", usesWorker: true },
+  { key: "tessellate", label: "Tessellate", controlsId: "tessellateControls", usesWorker: false },
+  { key: "boundary", label: "Boundary Disruption", controlsId: "boundaryControls", usesWorker: true },
+  { key: "menger", label: "Menger Sponge", controlsId: "mengerControls", usesWorker: false }
+];
+
+function normalizeGeometry(geometry) {
+  if (!geometry) return geometry;
+
+  if (!geometry.isBufferGeometry) {
+    if (geometry.isGeometry && typeof THREE.BufferGeometry.prototype.fromGeometry === "function") {
+      geometry = new THREE.BufferGeometry().fromGeometry(geometry);
+    } else {
+      console.warn("normalizeGeometry: Non-buffer geometry cannot be normalized.");
+      return geometry;
+    }
+  }
+
+  const position = geometry.getAttribute("position");
+  if (position && !position.isBufferAttribute && !position.isInterleavedBufferAttribute) {
+    const arr = position.array || position;
+    const safeArray = arr || new Float32Array(0);
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(safeArray, 3));
+  } else if (!position) {
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(0), 3));
+  }
+
+  const index = geometry.index;
+  if (index && !index.isBufferAttribute && !index.isInterleavedBufferAttribute) {
+    geometry.setIndex(index.array || index || []);
+  }
+
+  return geometry;
+}
+
+function resetDeformedGeometries() {
+  deformedGeometries = {};
+  for (const def of deformationRegistry) {
+    deformedGeometries[def.key] = null;
+  }
+}
+
+resetDeformedGeometries();
 
 // --- Poisson Disk Sampling for IDW Control Points ---
 class PoissonSampler {
   constructor(seed = 0) {
     this.seed = seed;
     this.random = this.seededRandom(seed);
+    this.raycaster = new THREE.Raycaster();
+    this.directions = [
+      new THREE.Vector3(1, 0, 0),
+      new THREE.Vector3(-1, 0, 0),
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0, -1, 0),
+      new THREE.Vector3(0, 0, 1),
+      new THREE.Vector3(0, 0, -1),
+      new THREE.Vector3(1, 1, 1).normalize(),
+      new THREE.Vector3(-1, 1, 1).normalize(),
+      new THREE.Vector3(1, -1, 1).normalize(),
+      new THREE.Vector3(1, 1, -1).normalize()
+    ];
   }
 
   seededRandom(seed) {
@@ -365,14 +469,14 @@ class PoissonSampler {
   }
 
   // Filter samples to only include those inside the mesh volume
-  filterInsideVolume(samples, geometry) {
+  filterInsideVolume(samples, geometry, maxDirections = null) {
     const insideSamples = [];
 
     // Create a temporary mesh for ray casting
     const tempMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
 
     for (const sample of samples) {
-      if (this.isPointInsideMesh(sample, tempMesh)) {
+      if (this.isPointInsideMesh(sample, tempMesh, maxDirections)) {
         insideSamples.push(sample);
       }
     }
@@ -381,28 +485,17 @@ class PoissonSampler {
   }
 
   // Use ray casting to determine if a point is inside the mesh
-  isPointInsideMesh(point, mesh) {
-    const raycaster = new THREE.Raycaster();
-    const directions = [
-      new THREE.Vector3(1, 0, 0),
-      new THREE.Vector3(-1, 0, 0),
-      new THREE.Vector3(0, 1, 0),
-      new THREE.Vector3(0, -1, 0),
-      new THREE.Vector3(0, 0, 1),
-      new THREE.Vector3(0, 0, -1),
-      // Additional diagonal rays for better accuracy
-      new THREE.Vector3(1, 1, 1).normalize(),
-      new THREE.Vector3(-1, 1, 1).normalize(),
-      new THREE.Vector3(1, -1, 1).normalize(),
-      new THREE.Vector3(1, 1, -1).normalize()
-    ];
+  isPointInsideMesh(point, mesh, maxDirections = null) {
+    const directions = maxDirections
+      ? this.directions.slice(0, Math.max(2, Math.min(maxDirections, this.directions.length)))
+      : this.directions;
 
     let insideCount = 0;
     const totalDirections = directions.length;
 
     for (const direction of directions) {
-      raycaster.set(new THREE.Vector3(point.x, point.y, point.z), direction);
-      const intersects = raycaster.intersectObject(mesh);
+      this.raycaster.set(new THREE.Vector3(point.x, point.y, point.z), direction);
+      const intersects = this.raycaster.intersectObject(mesh);
 
       // Count intersections in positive direction
       let count = 0;
@@ -516,6 +609,8 @@ class WorkerPool {
       const positionAttribute = geometry.getAttribute('position');
       const vertices = positionAttribute.array.slice(); // Copy array
       const bbox = geometry.boundingBox;
+      this.indexArray = geometry.index ? geometry.index.array.slice() : null;
+      this.indexType = geometry.index ? geometry.index.array.constructor : null;
 
       // Split vertices into chunks
       const chunks = this.chunkVertices(vertices, this.chunkSize);
@@ -576,6 +671,10 @@ class WorkerPool {
 
     for (let chunkId = 0; chunkId < this.totalChunks; chunkId++) {
       const chunkVertices = this.results[chunkId];
+      if (!chunkVertices) {
+        console.warn(`Missing chunk ${chunkId} during deformation; leaving zeros.`);
+        continue;
+      }
       const startIndex = chunkId * this.chunkSize * 3;
       finalVertices.set(chunkVertices, startIndex);
     }
@@ -583,6 +682,13 @@ class WorkerPool {
     // Update geometry
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(finalVertices, 3));
+    if (this.indexArray && this.indexType) {
+      if (this.indexType === Array) {
+        geometry.setIndex(this.indexArray);
+      } else {
+        geometry.setIndex(new this.indexType(this.indexArray));
+      }
+    }
     geometry.computeVertexNormals();
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
@@ -605,6 +711,20 @@ class WorkerPool {
       return pixelateShape(geom);
     } else if (deformationType === "idw") {
       return idwShape(geom, params);
+    } else if (deformationType === "inflate") {
+      return inflateShape(geom, params);
+    } else if (deformationType === "twist") {
+      return twistShape(geom, params);
+    } else if (deformationType === "bend") {
+      return bendShape(geom, params);
+    } else if (deformationType === "ripple") {
+      return rippleShape(geom, params);
+    } else if (deformationType === "warp") {
+      return warpShape(geom, params);
+    } else if (deformationType === "hyper") {
+      return hyperShape(geom, params);
+    } else if (deformationType === "boundary") {
+      return boundaryDisruptShape(geom, params);
     }
 
     return geom;
@@ -682,6 +802,27 @@ const statusDisplay = {
   },
 };
 
+function getGeometryStats(geometry) {
+  if (!geometry || !geometry.attributes || !geometry.attributes.position) {
+    return { vertices: 0, triangles: 0 };
+  }
+  const vertexCount = geometry.attributes.position.count || 0;
+  const indexCount = geometry.index ? geometry.index.count : 0;
+  const triangles = indexCount ? Math.floor(indexCount / 3) : Math.floor(vertexCount / 3);
+  return { vertices: vertexCount, triangles };
+}
+
+function updateStats(original, deformed, timeMs = null) {
+  if (!statsElement) return;
+  const origStats = getGeometryStats(original);
+  const defStats = getGeometryStats(deformed);
+  const timeText = timeMs != null ? `${timeMs.toFixed(0)} ms` : "N/A";
+  statsElement.textContent =
+    `Stats: Orig ${origStats.vertices} verts / ${origStats.triangles} tris | ` +
+    `Deformed ${defStats.vertices} verts / ${defStats.triangles} tris | ` +
+    `Time ${timeText}`;
+}
+
 function init() {
   container = document.getElementById("container");
   const width = window.innerWidth;
@@ -690,6 +831,7 @@ function init() {
   // --- CRITICAL FIX: Get UI elements first before any potential error calls ---
   processBtn = document.getElementById("processBtn");
   statusElement = document.getElementById("status");
+  statsElement = document.getElementById("stats");
   exportBtn = document.getElementById("exportBtn");
   toggleView = document.getElementById("toggleView");
   renderMode = document.getElementById("renderMode");
@@ -856,7 +998,7 @@ function setupListeners() {
 function clearModelAndUI() {
   // Reset geometries
   originalGeometry = null;
-  deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
+  resetDeformedGeometries();
   originalFileName = null; // Reset original file name
 
   // Clear meshes from scene
@@ -892,11 +1034,12 @@ function clearModelAndUI() {
   const fileInput = document.getElementById("fileInput");
   if (fileInput) fileInput.value = "";
   if (statusElement) statusElement.textContent = "Cleared. Ready to load STL.";
+  if (statsElement) statsElement.textContent = "Stats: N/A";
 }
 
 function loadDefaultSTL() {
   const defaultPath = "JustBones617_0_resaved_1_NIH3D.stl";
-  const loader = new THREE.STLLoader();
+  const loader = createSTLLoader();
   // Provide immediate feedback
   statusDisplay.update(`Loading default model: ${defaultPath} ...`, true);
   loader.load(
@@ -911,11 +1054,12 @@ function loadDefaultSTL() {
         originalGeometry.computeBoundingBox();
         originalGeometry.computeBoundingSphere();
         // Reset any previous deformations
-        deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
+        resetDeformedGeometries();
         originalFileName = defaultPath; // Set default file name
 
         // Update adaptive parameter ranges based on model size
         updateAdaptiveParameterRanges();
+        updateStats(originalGeometry, null, null);
 
         // Show the original mesh immediately
         updateSceneMeshes();
@@ -941,25 +1085,20 @@ function loadDefaultSTL() {
 }
 
 function setupControlPanels() {
-  document.getElementById("noiseControls").style.display =
-    currentModelKey === "noise" ? "block" : "none";
-  document.getElementById("sineControls").style.display =
-    currentModelKey === "sine" ? "block" : "none";
-  document.getElementById("pixelControls").style.display =
-    currentModelKey === "pixel" ? "block" : "none";
-  document.getElementById("idwControls").style.display =
-    currentModelKey === "idw" ? "block" : "none";
+  for (const def of deformationRegistry) {
+    const panel = document.getElementById(def.controlsId);
+    if (panel) {
+      panel.style.display = currentModelKey === def.key ? "block" : "none";
+    }
+  }
 
   // Update control point visualization
   updateControlPointVisualization();
 }
 
 function setupParameterControls() {
-  // Parameter controls ONLY change the parameter value and label.
-  // They do NOT automatically trigger a re-generation.
   const updateHandler = (key) => {
     if (originalGeometry && currentModelKey === key) {
-      // Update UI/Status to tell the user to click the button
       statusDisplay.update(
         `Parameters updated. Click 'Generate Deformation' to apply.`,
         false,
@@ -967,81 +1106,138 @@ function setupParameterControls() {
     }
   };
 
-  // NOISE CONTROLS
-  document.getElementById("noiseIntensity").addEventListener("input", (e) => {
-    deformParams.noise.intensity = parseFloat(e.target.value);
-    document.getElementById("noiseIntensityVal").textContent = e.target.value;
-    updateHandler("noise");
-  });
-  document.getElementById("noiseScale").addEventListener("input", (e) => {
-    deformParams.noise.scale = parseFloat(e.target.value);
-    document.getElementById("noiseScaleVal").textContent = e.target.value;
-    updateHandler("noise");
-  });
-  document.getElementById("noiseAxis").addEventListener("change", (e) => {
-    deformParams.noise.axis = e.target.value;
-    updateHandler("noise");
-  });
+  const bindRange = (key, param, inputId, valueId, parser = parseFloat) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener("input", (e) => {
+      deformParams[key][param] = parser(e.target.value);
+      const valueEl = document.getElementById(valueId);
+      if (valueEl) valueEl.textContent = e.target.value;
+      updateHandler(key);
+    });
+  };
 
-  // SINE CONTROLS
-  document.getElementById("sineAmp").addEventListener("input", (e) => {
-    deformParams.sine.amplitude = parseFloat(e.target.value);
-    document.getElementById("sineAmpVal").textContent = e.target.value;
-    updateHandler("sine");
-  });
-  document.getElementById("sineFreq").addEventListener("input", (e) => {
-    deformParams.sine.frequency = parseFloat(e.target.value);
-    document.getElementById("sineFreqVal").textContent = e.target.value;
-    updateHandler("sine");
-  });
-  document.getElementById("sineDriverAxis").addEventListener("change", (e) => {
-    deformParams.sine.driverAxis = e.target.value;
-    updateHandler("sine");
-  });
-  document.getElementById("sineDispAxis").addEventListener("change", (e) => {
-    deformParams.sine.dispAxis = e.target.value;
-    updateHandler("sine");
-  });
+  const bindSelect = (key, param, inputId) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener("change", (e) => {
+      deformParams[key][param] = e.target.value;
+      updateHandler(key);
+    });
+  };
 
-  // PIXEL CONTROLS
-  document.getElementById("pixelSize").addEventListener("input", (e) => {
-    deformParams.pixel.size = parseFloat(e.target.value);
-    document.getElementById("pixelSizeVal").textContent = e.target.value;
-    updateHandler("pixel");
-  });
-  document.getElementById("pixelAxis").addEventListener("change", (e) => {
-    deformParams.pixel.axis = e.target.value;
-    updateHandler("pixel");
-  });
+  const bindNumber = (key, param, inputId, valueId, clampFn) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener("input", (e) => {
+      const parsed = parseInt(e.target.value) || 0;
+      deformParams[key][param] = clampFn ? clampFn(parsed) : parsed;
+      if (valueId) {
+        const valueEl = document.getElementById(valueId);
+        if (valueEl) valueEl.textContent = deformParams[key][param];
+      }
+      e.target.value = deformParams[key][param];
+      updateHandler(key);
+    });
+  };
 
-  // IDW CONTROLS
-  document.getElementById("idwNumPoints").addEventListener("input", (e) => {
-    deformParams.idw.numPoints = parseInt(e.target.value);
-    document.getElementById("idwNumPointsVal").textContent = e.target.value;
-    updateHandler("idw");
-  });
-  document.getElementById("idwSeed").addEventListener("input", (e) => {
-    const seedValue = parseInt(e.target.value) || 0;
-    deformParams.idw.seed = Math.max(0, Math.min(10000, seedValue)); // Clamp to valid range
-    e.target.value = deformParams.idw.seed; // Update input value
-    document.getElementById("idwSeedVal").textContent = deformParams.idw.seed;
-    updateHandler("idw");
-  });
-  document.getElementById("idwWeight").addEventListener("input", (e) => {
-    deformParams.idw.weight = parseFloat(e.target.value);
-    document.getElementById("idwWeightVal").textContent = e.target.value;
-    updateHandler("idw");
-  });
-  document.getElementById("idwPower").addEventListener("input", (e) => {
-    deformParams.idw.power = parseFloat(e.target.value);
-    document.getElementById("idwPowerVal").textContent = e.target.value;
-    updateHandler("idw");
-  });
-  document.getElementById("idwScale").addEventListener("input", (e) => {
-    deformParams.idw.scale = parseFloat(e.target.value);
-    document.getElementById("idwScaleVal").textContent = e.target.value;
-    updateHandler("idw");
-  });
+  const bindCheckbox = (key, param, inputId) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener("change", (e) => {
+      deformParams[key][param] = !!e.target.checked;
+      updateHandler(key);
+    });
+  };
+
+  const bindTextarea = (key, param, inputId) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener("input", (e) => {
+      deformParams[key][param] = e.target.value;
+      updateHandler(key);
+    });
+  };
+
+  // Noise
+  bindRange("noise", "intensity", "noiseIntensity", "noiseIntensityVal");
+  bindRange("noise", "scale", "noiseScale", "noiseScaleVal");
+  bindSelect("noise", "axis", "noiseAxis");
+
+  // Sine
+  bindRange("sine", "amplitude", "sineAmp", "sineAmpVal");
+  bindRange("sine", "frequency", "sineFreq", "sineFreqVal");
+  bindSelect("sine", "driverAxis", "sineDriverAxis");
+  bindSelect("sine", "dispAxis", "sineDispAxis");
+
+  // Pixel
+  bindRange("pixel", "size", "pixelSize", "pixelSizeVal");
+  bindSelect("pixel", "axis", "pixelAxis");
+
+  // IDW
+  bindRange("idw", "numPoints", "idwNumPoints", "idwNumPointsVal", parseInt);
+  bindNumber("idw", "seed", "idwSeed", "idwSeedVal", (value) =>
+    Math.max(0, Math.min(10000, value))
+  );
+  bindRange("idw", "weight", "idwWeight", "idwWeightVal");
+  bindRange("idw", "power", "idwPower", "idwPowerVal");
+  bindRange("idw", "scale", "idwScale", "idwScaleVal");
+  bindRange("idw", "rays", "idwRays", "idwRaysVal", parseInt);
+  bindCheckbox("idw", "manualPoints", "idwManualPoints");
+  bindTextarea("idw", "pointsText", "idwPointsInput");
+
+  // Inflate
+  bindRange("inflate", "amount", "inflateAmount", "inflateAmountVal");
+
+  // Twist
+  bindRange("twist", "angle", "twistAngle", "twistAngleVal");
+  bindSelect("twist", "axis", "twistAxis");
+
+  // Bend
+  bindRange("bend", "strength", "bendStrength", "bendStrengthVal");
+  bindSelect("bend", "axis", "bendAxis");
+
+  // Ripple
+  bindRange("ripple", "amplitude", "rippleAmp", "rippleAmpVal");
+  bindRange("ripple", "frequency", "rippleFreq", "rippleFreqVal");
+  bindSelect("ripple", "axis", "rippleAxis");
+
+  // Warp
+  bindRange("warp", "strength", "warpStrength", "warpStrengthVal");
+  bindRange("warp", "scale", "warpScale", "warpScaleVal");
+
+  // Hyperbolic
+  bindRange("hyper", "amount", "hyperAmount", "hyperAmountVal");
+  bindSelect("hyper", "axis", "hyperAxis");
+
+  // Tessellate
+  bindRange("tessellate", "steps", "tessellateSteps", "tessellateStepsVal", parseInt);
+
+  // Boundary
+  bindRange("boundary", "threshold", "boundaryThreshold", "boundaryThresholdVal");
+  bindRange("boundary", "jitter", "boundaryJitter", "boundaryJitterVal");
+
+  // Menger
+  bindRange("menger", "iterations", "mengerIterations", "mengerIterationsVal", parseInt);
+  bindRange("menger", "keepRatio", "mengerKeep", "mengerKeepVal");
+
+  // Preprocess controls
+  const decimate = document.getElementById("decimate");
+  if (decimate) {
+    decimate.addEventListener("input", (e) => {
+      preprocessSettings.decimate = parseInt(e.target.value);
+      const val = document.getElementById("decimateVal");
+      if (val) val.textContent = e.target.value;
+    });
+  }
+  const merge = document.getElementById("mergeEpsilon");
+  if (merge) {
+    merge.addEventListener("input", (e) => {
+      preprocessSettings.mergeEpsilon = parseFloat(e.target.value);
+      const val = document.getElementById("mergeVal");
+      if (val) val.textContent = e.target.value;
+    });
+  }
 }
 
 // Update parameter ranges based on model size to prevent exponential effects
@@ -1093,7 +1289,7 @@ function updateAdaptiveParameterRanges() {
 }
 
 function parseSTL(arrayBuffer) {
-  const loader = new THREE.STLLoader();
+  const loader = createSTLLoader();
   originalGeometry = loader.parse(arrayBuffer);
 
   originalGeometry.computeBoundingBox();
@@ -1104,15 +1300,279 @@ function parseSTL(arrayBuffer) {
   originalGeometry.computeBoundingBox();
   originalGeometry.computeBoundingSphere();
   // Clear any old deformed models when a new file is loaded
-  deformedGeometries = { noise: null, sine: null, pixel: null, idw: null };
+  resetDeformedGeometries();
 
   // Update adaptive parameter ranges based on model size
   updateAdaptiveParameterRanges();
+  updateStats(originalGeometry, null, null);
 
   console.log(
     "STL Loaded. Vertices:",
     originalGeometry.attributes.position.count,
   );
+}
+
+function applyPreprocess(sourceGeometry) {
+  if (!sourceGeometry) return sourceGeometry;
+  const needsDecimate = preprocessSettings.decimate < 100;
+  const needsMerge = preprocessSettings.mergeEpsilon > 0;
+
+  if (!needsDecimate && !needsMerge) {
+    return normalizeGeometry(sourceGeometry);
+  }
+
+  let geometry = sourceGeometry.clone();
+  if (geometry.index) {
+    geometry = geometry.toNonIndexed();
+  }
+
+  if (needsDecimate) {
+    geometry = decimateGeometry(geometry, preprocessSettings.decimate);
+  }
+
+  if (needsMerge) {
+    geometry = mergeVerticesGeometry(geometry, preprocessSettings.mergeEpsilon);
+  }
+
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return normalizeGeometry(geometry);
+}
+
+function decimateGeometry(geometry, keepPercent) {
+  const position = geometry.getAttribute("position");
+  if (!position || position.count < 3) return geometry;
+
+  const keepRatio = Math.max(0.1, Math.min(1, keepPercent / 100));
+  if (keepRatio >= 0.999) return geometry;
+
+  geometry.computeBoundingBox();
+  const bbox = geometry.boundingBox;
+  if (!bbox) return geometry;
+
+  const size = new THREE.Vector3();
+  bbox.getSize(size);
+  const volume = Math.max(1e-9, size.x * size.y * size.z);
+
+  const targetVertices = Math.max(4, Math.floor(position.count * keepRatio));
+  let voxelSize = Math.cbrt(volume / targetVertices);
+
+  // Clamp voxel size to avoid extreme collapse on thin meshes
+  const diag = Math.hypot(size.x, size.y, size.z) || 1;
+  const minVoxel = diag * 1e-4;
+  const maxVoxel = diag * 0.25;
+  voxelSize = Math.max(minVoxel, Math.min(maxVoxel, voxelSize));
+
+  const positions = position.array;
+  const map = new Map();
+  const sums = [];
+  const counts = [];
+  const vertexToCluster = new Array(position.count);
+
+  const min = bbox.min;
+  const inv = 1 / voxelSize;
+
+  for (let i = 0; i < position.count; i++) {
+    const x = positions[i * 3];
+    const y = positions[i * 3 + 1];
+    const z = positions[i * 3 + 2];
+    const ix = Math.floor((x - min.x) * inv);
+    const iy = Math.floor((y - min.y) * inv);
+    const iz = Math.floor((z - min.z) * inv);
+    const key = `${ix},${iy},${iz}`;
+    let clusterIndex = map.get(key);
+    if (clusterIndex === undefined) {
+      clusterIndex = sums.length / 3;
+      map.set(key, clusterIndex);
+      sums.push(x, y, z);
+      counts.push(1);
+    } else {
+      const base = clusterIndex * 3;
+      sums[base] += x;
+      sums[base + 1] += y;
+      sums[base + 2] += z;
+      counts[clusterIndex] += 1;
+    }
+    vertexToCluster[i] = clusterIndex;
+  }
+
+  const clustered = new Float32Array(sums.length);
+  for (let i = 0; i < counts.length; i++) {
+    const base = i * 3;
+    const c = counts[i];
+    clustered[base] = sums[base] / c;
+    clustered[base + 1] = sums[base + 1] / c;
+    clustered[base + 2] = sums[base + 2] / c;
+  }
+
+  const indices = [];
+  const epsSq = 1e-12;
+  for (let i = 0; i < position.count; i += 3) {
+    const a = vertexToCluster[i];
+    const b = vertexToCluster[i + 1];
+    const c = vertexToCluster[i + 2];
+    if (a === b || b === c || c === a) continue;
+
+    const ax = clustered[a * 3], ay = clustered[a * 3 + 1], az = clustered[a * 3 + 2];
+    const bx = clustered[b * 3], by = clustered[b * 3 + 1], bz = clustered[b * 3 + 2];
+    const cx = clustered[c * 3], cy = clustered[c * 3 + 1], cz = clustered[c * 3 + 2];
+    const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
+    const e2x = cx - ax, e2y = cy - ay, e2z = cz - az;
+    const nx = e1y * e2z - e1z * e2y;
+    const ny = e1z * e2x - e1x * e2z;
+    const nz = e1x * e2y - e1y * e2x;
+    const area2 = nx * nx + ny * ny + nz * nz;
+    if (area2 <= epsSq) continue;
+
+    indices.push(a, b, c);
+  }
+
+  if (indices.length === 0) {
+    console.warn("Decimation removed all faces; returning original geometry.");
+    return geometry;
+  }
+
+  const newGeom = new THREE.BufferGeometry();
+  newGeom.setAttribute("position", new THREE.Float32BufferAttribute(clustered, 3));
+  newGeom.setIndex(indices);
+  newGeom.computeVertexNormals();
+  newGeom.computeBoundingBox();
+  newGeom.computeBoundingSphere();
+  return newGeom;
+}
+
+function mergeVerticesGeometry(geometry, epsilon) {
+  const position = geometry.getAttribute("position");
+  if (!position || position.count === 0) return geometry;
+  const positions = position.array;
+  const map = new Map();
+  const unique = [];
+  const indices = [];
+
+  const inv = 1 / epsilon;
+  for (let i = 0; i < positions.length; i += 3) {
+    const x = positions[i];
+    const y = positions[i + 1];
+    const z = positions[i + 2];
+    const key = `${Math.round(x * inv)},${Math.round(y * inv)},${Math.round(z * inv)}`;
+    let idx = map.get(key);
+    if (idx === undefined) {
+      idx = unique.length / 3;
+      unique.push(x, y, z);
+      map.set(key, idx);
+    }
+    indices.push(idx);
+  }
+
+  const newGeom = new THREE.BufferGeometry();
+  newGeom.setAttribute("position", new THREE.Float32BufferAttribute(unique, 3));
+  newGeom.setIndex(indices);
+  newGeom.computeVertexNormals();
+  return newGeom;
+}
+
+function applyTopologyDeformation(type, params, geometry) {
+  switch (type) {
+    case "tessellate":
+      return tessellateGeometry(geometry, params.steps || 1);
+    case "menger":
+      return mengerCarveGeometry(geometry, params.iterations || 1, params.keepRatio || 0.7);
+    default:
+      return geometry.clone();
+  }
+}
+
+function tessellateGeometry(geometry, steps = 1) {
+  let geom = geometry.toNonIndexed();
+  for (let step = 0; step < steps; step++) {
+    const position = geom.getAttribute("position");
+    if (!position || position.count < 3) break;
+    const arr = position.array;
+    const out = [];
+    for (let i = 0; i < arr.length; i += 9) {
+      const ax = arr[i], ay = arr[i + 1], az = arr[i + 2];
+      const bx = arr[i + 3], by = arr[i + 4], bz = arr[i + 5];
+      const cx = arr[i + 6], cy = arr[i + 7], cz = arr[i + 8];
+
+      const abx = (ax + bx) * 0.5, aby = (ay + by) * 0.5, abz = (az + bz) * 0.5;
+      const bcx = (bx + cx) * 0.5, bcy = (by + cy) * 0.5, bcz = (bz + cz) * 0.5;
+      const cax = (cx + ax) * 0.5, cay = (cy + ay) * 0.5, caz = (cz + az) * 0.5;
+
+      // Four new triangles
+      out.push(
+        ax, ay, az, abx, aby, abz, cax, cay, caz,
+        abx, aby, abz, bx, by, bz, bcx, bcy, bcz,
+        cax, cay, caz, bcx, bcy, bcz, cx, cy, cz,
+        abx, aby, abz, bcx, bcy, bcz, cax, cay, caz
+      );
+    }
+    geom = new THREE.BufferGeometry();
+    geom.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
+  }
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function mengerCarveGeometry(geometry, iterations = 1, keepRatio = 0.7) {
+  const geom = geometry.toNonIndexed();
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  if (!bbox) return geom;
+  const size = new THREE.Vector3();
+  bbox.getSize(size);
+  size.x = size.x || 1;
+  size.y = size.y || 1;
+  size.z = size.z || 1;
+
+  const position = geom.getAttribute("position");
+  const arr = position.array;
+  const kept = [];
+
+  const hash = (x, y, z) =>
+    Math.abs(Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1;
+
+  const isInMenger = (x, y, z, iters) => {
+    let px = x, py = y, pz = z;
+    for (let i = 0; i < iters; i++) {
+      const xi = Math.floor(px * 3);
+      const yi = Math.floor(py * 3);
+      const zi = Math.floor(pz * 3);
+      if (
+        (xi === 1 && yi === 1) ||
+        (xi === 1 && zi === 1) ||
+        (yi === 1 && zi === 1)
+      ) {
+        return false;
+      }
+      px = (px * 3) % 1;
+      py = (py * 3) % 1;
+      pz = (pz * 3) % 1;
+    }
+    return true;
+  };
+
+  for (let i = 0; i < arr.length; i += 9) {
+    const cx = (arr[i] + arr[i + 3] + arr[i + 6]) / 3;
+    const cy = (arr[i + 1] + arr[i + 4] + arr[i + 7]) / 3;
+    const cz = (arr[i + 2] + arr[i + 5] + arr[i + 8]) / 3;
+    const nx = (cx - bbox.min.x) / size.x;
+    const ny = (cy - bbox.min.y) / size.y;
+    const nz = (cz - bbox.min.z) / size.z;
+
+    const inside = isInMenger(nx, ny, nz, iterations);
+    if (!inside) continue;
+    if (hash(cx, cy, cz) > keepRatio) continue;
+    for (let j = 0; j < 9; j++) kept.push(arr[i + j]);
+  }
+
+  const newGeom = new THREE.BufferGeometry();
+  newGeom.setAttribute("position", new THREE.Float32BufferAttribute(kept, 3));
+  newGeom.computeVertexNormals();
+  newGeom.computeBoundingBox();
+  newGeom.computeBoundingSphere();
+  return newGeom;
 }
 
 async function generateCurrent() {
@@ -1121,12 +1581,43 @@ async function generateCurrent() {
   try {
     statusDisplay.update(`Processing ${currentModelKey} deformation...`, true);
 
+    const defEntry = deformationRegistry.find((entry) => entry.key === currentModelKey);
+    if (!defEntry) {
+      statusDisplay.error("Unknown deformation type.");
+      return;
+    }
+
+    // Preprocess geometry if requested
+    let workingGeometry = applyPreprocess(originalGeometry);
+
     // Special handling for IDW: generate control points
     let params = { ...deformParams[currentModelKey] };
     if (currentModelKey === 'idw') {
-      const controlPoints = generateIDWControlPoints();
+      let controlPoints = [];
+      if (deformParams.idw.manualPoints) {
+        controlPoints = parseManualControlPoints(deformParams.idw.pointsText);
+        if (controlPoints.length === 0) {
+          console.warn("Manual control points empty; falling back to auto-generated points.");
+        }
+      }
+      if (controlPoints.length === 0) {
+        controlPoints = generateIDWControlPoints();
+      }
+      idwControlPoints = controlPoints;
       params.controlPoints = controlPoints;
       console.log(`Using ${controlPoints.length} control points for IDW deformation`);
+    }
+
+    const startTime = performance.now();
+
+    // Topology-changing methods are handled on main thread
+    if (!defEntry.usesWorker) {
+      const topologyGeometry = applyTopologyDeformation(currentModelKey, params, workingGeometry);
+      deformedGeometries[currentModelKey] = topologyGeometry;
+      const elapsed = performance.now() - startTime;
+      updateStats(originalGeometry, topologyGeometry, elapsed);
+      statusDisplay.update(`Generated ${currentModelKey} deformation successfully.`, false);
+      return;
     }
 
     // Set up progress callback
@@ -1136,17 +1627,19 @@ async function generateCurrent() {
     });
 
     // Store original vertex count for worker pool
-    workerPool.originalVertexCount = originalGeometry.attributes.position.count * 3;
+    workerPool.originalVertexCount = workingGeometry.attributes.position.count * 3;
 
     // Use worker pool for parallel processing
     const deformedGeometry = await workerPool.deformVertices(
       currentModelKey,
       params,
-      originalGeometry
+      workingGeometry
     );
 
     // Store the result
-    deformedGeometries[currentModelKey] = deformedGeometry;
+    deformedGeometries[currentModelKey] = normalizeGeometry(deformedGeometry);
+    const elapsed = performance.now() - startTime;
+    updateStats(originalGeometry, deformedGeometry, elapsed);
 
     statusDisplay.update(`Generated ${currentModelKey} deformation successfully.`, false);
 
@@ -1336,7 +1829,7 @@ function exportSTL() {
     const scene = new THREE.Scene();
     const mesh = new THREE.Mesh(activeModel);
     scene.add(mesh);
-    const exporter = new THREE.STLExporter();
+    const exporter = createSTLExporter();
     const stlString = exporter.parse(scene, { binary: false });
 
     const blob = new Blob([stlString], { type: "text/plain" });
@@ -1462,9 +1955,17 @@ function sineDeformShape(geom) {
 
 function pixelateShape(geom) {
   const pixelSize = deformParams.pixel.size;
+  if (!geom || !geom.attributes || !geom.attributes.position || pixelSize <= 0) {
+    console.warn("Pixelation skipped: invalid geometry or pixel size.");
+    return geom;
+  }
   const axisMode = deformParams.pixel.axis;
   const positionAttribute = geom.getAttribute("position");
   const arr = positionAttribute.array;
+  if (!arr || arr.length === 0) {
+    console.warn("Pixelation skipped: empty geometry.");
+    return geom;
+  }
   const initialLength = arr.length;
   const allowX = axisMode.includes("x") || axisMode === "all";
   const allowY = axisMode.includes("y") || axisMode === "all";
@@ -1521,8 +2022,10 @@ function pixelateShape(geom) {
   }
   positionAttribute.needsUpdate = true;
   geom.computeVertexNormals();
-  geom.computeBoundingBox();
-  geom.computeBoundingSphere();
+  if (positionAttribute.count > 0) {
+    geom.computeBoundingBox();
+    geom.computeBoundingSphere();
+  }
   return geom;
 }
 
@@ -1582,8 +2085,251 @@ function idwShape(geom, params = null) {
   return geom;
 }
 
+function inflateShape(geom, params) {
+  const amount = params.amount ?? 0.5;
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  const center = new THREE.Vector3();
+  bbox.getCenter(center);
+  const size = new THREE.Vector3();
+  bbox.getSize(size);
+  const maxRadius = Math.max(size.x, size.y, size.z) * 0.5 || 1;
+
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+  for (let i = 0; i < arr.length; i += 3) {
+    const dx = arr[i] - center.x;
+    const dy = arr[i + 1] - center.y;
+    const dz = arr[i + 2] - center.z;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+    const scale = 1 + (amount * (dist / maxRadius));
+    arr[i] = center.x + dx * scale;
+    arr[i + 1] = center.y + dy * scale;
+    arr[i + 2] = center.z + dz * scale;
+  }
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function twistShape(geom, params) {
+  const axis = params.axis || "y";
+  const angleDeg = params.angle ?? 180;
+  const angle = angleDeg * (Math.PI / 180);
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+  const min = bbox.min[axis];
+  const max = bbox.max[axis];
+  const range = max - min || 1;
+
+  for (let i = 0; i < arr.length; i += 3) {
+    const x = arr[i], y = arr[i + 1], z = arr[i + 2];
+    const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
+    const theta = t * angle;
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+
+    if (axis === "x") {
+      arr[i + 1] = y * cos - z * sin;
+      arr[i + 2] = y * sin + z * cos;
+    } else if (axis === "y") {
+      arr[i] = x * cos - z * sin;
+      arr[i + 2] = x * sin + z * cos;
+    } else {
+      arr[i] = x * cos - y * sin;
+      arr[i + 1] = x * sin + y * cos;
+    }
+  }
+
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function bendShape(geom, params) {
+  const axis = params.axis || "y";
+  const strength = params.strength ?? 0.8;
+  const angleScale = strength * Math.PI;
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+  const min = bbox.min[axis];
+  const max = bbox.max[axis];
+  const range = max - min || 1;
+
+  for (let i = 0; i < arr.length; i += 3) {
+    let x = arr[i], y = arr[i + 1], z = arr[i + 2];
+    const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
+    const theta = t * angleScale;
+    const cos = Math.cos(theta);
+    const sin = Math.sin(theta);
+
+    if (axis === "x") {
+      const nx = x * cos - y * sin;
+      const ny = x * sin + y * cos;
+      x = nx; y = ny;
+    } else if (axis === "y") {
+      const ny = y * cos - z * sin;
+      const nz = y * sin + z * cos;
+      y = ny; z = nz;
+    } else {
+      const nx = x * cos - z * sin;
+      const nz = x * sin + z * cos;
+      x = nx; z = nz;
+    }
+
+    arr[i] = x;
+    arr[i + 1] = y;
+    arr[i + 2] = z;
+  }
+
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function rippleShape(geom, params) {
+  const axis = params.axis || "y";
+  const amplitude = params.amplitude ?? 4;
+  const frequency = params.frequency ?? 0.3;
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  const center = new THREE.Vector3();
+  bbox.getCenter(center);
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+
+  for (let i = 0; i < arr.length; i += 3) {
+    const x = arr[i], y = arr[i + 1], z = arr[i + 2];
+    let r = 0;
+    if (axis === "x") {
+      r = Math.sqrt((y - center.y) ** 2 + (z - center.z) ** 2);
+      arr[i] = x + Math.sin(r * frequency) * amplitude;
+    } else if (axis === "y") {
+      r = Math.sqrt((x - center.x) ** 2 + (z - center.z) ** 2);
+      arr[i + 1] = y + Math.sin(r * frequency) * amplitude;
+    } else {
+      r = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+      arr[i + 2] = z + Math.sin(r * frequency) * amplitude;
+    }
+  }
+
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function warpShape(geom, params) {
+  const strength = params.strength ?? 1.0;
+  const scale = params.scale ?? 0.2;
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+  for (let i = 0; i < arr.length; i += 3) {
+    const x = arr[i], y = arr[i + 1], z = arr[i + 2];
+    arr[i] = x + Math.sin(y * scale) * strength;
+    arr[i + 1] = y + Math.sin(z * scale) * strength;
+    arr[i + 2] = z + Math.sin(x * scale) * strength;
+  }
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function hyperShape(geom, params) {
+  const axis = params.axis || "y";
+  const amount = params.amount ?? 0.6;
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+  const min = bbox.min[axis];
+  const max = bbox.max[axis];
+  const range = max - min || 1;
+  const center = (min + max) * 0.5;
+  const denom = Math.sinh(amount) || 1;
+
+  for (let i = 0; i < arr.length; i += 3) {
+    let v = axis === "x" ? arr[i] : axis === "y" ? arr[i + 1] : arr[i + 2];
+    const t = (v - center) / range;
+    const stretched = Math.sinh(t * amount) / denom;
+    v = center + stretched * range;
+    if (axis === "x") arr[i] = v;
+    else if (axis === "y") arr[i + 1] = v;
+    else arr[i + 2] = v;
+  }
+
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function boundaryDisruptShape(geom, params) {
+  const threshold = params.threshold ?? 0.08;
+  const jitter = params.jitter ?? 2.0;
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  const size = new THREE.Vector3();
+  bbox.getSize(size);
+  const epsX = size.x * threshold;
+  const epsY = size.y * threshold;
+  const epsZ = size.z * threshold;
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+  const hash = (x, y, z) =>
+    Math.abs(Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1;
+
+  for (let i = 0; i < arr.length; i += 3) {
+    const x = arr[i], y = arr[i + 1], z = arr[i + 2];
+    const near =
+      Math.abs(x - bbox.min.x) < epsX || Math.abs(x - bbox.max.x) < epsX ||
+      Math.abs(y - bbox.min.y) < epsY || Math.abs(y - bbox.max.y) < epsY ||
+      Math.abs(z - bbox.min.z) < epsZ || Math.abs(z - bbox.max.z) < epsZ;
+    if (!near) continue;
+    const r = (hash(x, y, z) - 0.5) * 2;
+    arr[i] = x + r * jitter;
+    arr[i + 1] = y + r * jitter;
+    arr[i + 2] = z + r * jitter;
+  }
+
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
 // Global storage for IDW control points
 let idwControlPoints = [];
+
+function parseManualControlPoints(text) {
+  if (!text || !text.trim()) return [];
+  const lines = text.split(/\n|;/);
+  const points = [];
+  for (const line of lines) {
+    const cleaned = line.trim();
+    if (!cleaned) continue;
+    const parts = cleaned.split(/[, ]+/).map((v) => parseFloat(v)).filter((v) => !Number.isNaN(v));
+    if (parts.length >= 3) {
+      points.push({ x: parts[0], y: parts[1], z: parts[2] });
+    }
+  }
+  return points;
+}
 
 // Generate IDW control points using Poisson disk sampling
 function generateIDWControlPoints() {
@@ -1609,7 +2355,11 @@ function generateIDWControlPoints() {
   let samples = sampler.generateSamples(minDistance, maxSamples * 10, bbox); // Generate 10x more candidates
 
   // Filter to only include points inside the mesh volume
-  const insideSamples = sampler.filterInsideVolume(samples, originalGeometry);
+  const insideSamples = sampler.filterInsideVolume(
+    samples,
+    originalGeometry,
+    deformParams.idw.rays
+  );
 
   console.log(`Generated ${samples.length} candidates, found ${insideSamples.length} inside mesh volume`);
 
@@ -1619,7 +2369,11 @@ function generateIDWControlPoints() {
     console.warn(`Only found ${controlPoints.length} points inside mesh volume, trying with smaller spacing...`);
     const smallerMinDistance = minDistance * 0.5;
     const additionalSamples = sampler.generateSamples(smallerMinDistance, maxSamples * 5, bbox);
-    const additionalInside = sampler.filterInsideVolume(additionalSamples, originalGeometry);
+    const additionalInside = sampler.filterInsideVolume(
+      additionalSamples,
+      originalGeometry,
+      deformParams.idw.rays
+    );
     controlPoints = [...new Set([...controlPoints, ...additionalInside])]; // Remove duplicates
   }
 
@@ -1655,4 +2409,8 @@ function generateIDWControlPoints() {
 }
 
 // Start the application
-window.onload = init;
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
