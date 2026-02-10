@@ -19,6 +19,28 @@ All notable changes to this project will be documented in this file.
 - Black/incorrect shading on some STLs by ensuring valid vertex normals.
 - Assorted P0–P4 tracked issues and robustness fixes.
 
+## Issue Set Definitions
+### P0 (Critical)
+- GPU memory leak from rebuilding meshes/materials without disposal. Leads to runaway memory use and degraded performance until the page becomes unusable.
+
+### P1 (High)
+- Bounds/centering invalidation: after `center()` the bounds are stale, breaking adaptive ranges and control-point placement.
+- Camera UX scaling: fixed camera limits make small/large models hard to navigate; should scale to model size and offer reset.
+- Rendering performance: recreating meshes on each update causes GC churn and frame drops; should update geometry/materials in place.
+
+### P3 (Low)
+- Help text/tooltips for controls.
+- STL drag-and-drop.
+- UI state persistence (local storage).
+- Presets for quick exploration.
+- Keyboard shortcuts for common actions.
+- Accessibility improvements (labels/focus states).
+- UI update throttling to reduce layout thrash.
+- Optional help modal with examples.
+
+### P4 (Unspecified)
+- No P4 definition exists in the repo history. Add criteria and items here if/when P4 is introduced.
+
 ## [0.5.0] - 2026-02-08
 ### Changed
 - Updated GUI and camera behavior.
