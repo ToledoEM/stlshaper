@@ -1,4 +1,5 @@
 # STLShaper ~ Subversion of Form
+Version: 0.6.0 (2026-02-10)
 
 
 *This is under constant development*
