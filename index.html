@@ -472,9 +472,13 @@
                 <label>
                     Axis:
                     <select id="twistAxis">
-                        <option value="y">Y Axis</option>
-                        <option value="x">X Axis</option>
-                        <option value="z">Z Axis</option>
+                        <option value="x">X Only</option>
+                        <option value="y" selected>Y Only</option>
+                        <option value="z">Z Only</option>
+                        <option value="xy">X & Y</option>
+                        <option value="xz">X & Z</option>
+                        <option value="yz">Y & Z</option>
+                        <option value="all">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -499,9 +503,13 @@
                 <label>
                     Axis:
                     <select id="bendAxis">
-                        <option value="x">X Axis</option>
-                        <option value="y" selected>Y Axis</option>
-                        <option value="z">Z Axis</option>
+                        <option value="x">X Only</option>
+                        <option value="y" selected>Y Only</option>
+                        <option value="z">Z Only</option>
+                        <option value="xy">X & Y</option>
+                        <option value="xz">X & Z</option>
+                        <option value="yz">Y & Z</option>
+                        <option value="all">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -537,9 +545,13 @@
                 <label>
                     Axis:
                     <select id="rippleAxis">
-                        <option value="y">Y Axis</option>
-                        <option value="x">X Axis</option>
-                        <option value="z">Z Axis</option>
+                        <option value="x">X Only</option>
+                        <option value="y" selected>Y Only</option>
+                        <option value="z">Z Only</option>
+                        <option value="xy">X & Y</option>
+                        <option value="xz">X & Z</option>
+                        <option value="yz">Y & Z</option>
+                        <option value="all">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -594,9 +606,13 @@
                 <label>
                     Axis:
                     <select id="hyperAxis">
-                        <option value="y">Y Axis</option>
-                        <option value="x">X Axis</option>
-                        <option value="z">Z Axis</option>
+                        <option value="x">X Only</option>
+                        <option value="y" selected>Y Only</option>
+                        <option value="z">Z Only</option>
+                        <option value="xy">X & Y</option>
+                        <option value="xz">X & Z</option>
+                        <option value="yz">Y & Z</option>
+                        <option value="all">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -613,7 +629,7 @@
                         type="range"
                         id="tessellateSteps"
                         min="1"
-                        max="2"
+                        max="3"
                         value="1"
                         step="1"
                     />
@@ -731,6 +747,13 @@
             <button id="exportBtn" disabled>Export Current STL</button>
 
             <button id="exportSettingsBtn" disabled>Export Settings</button>
+            <button id="importSettingsBtn">Import Settings</button>
+            <input
+                type="file"
+                id="importSettingsInput"
+                accept=".json,application/json"
+                style="display: none"
+            />
 
             <div id="stats">Stats: N/A</div>
 

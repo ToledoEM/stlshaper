@@ -17,6 +17,16 @@ function noise(x, y, z) {
 
 // --- Deformation Functions (Worker-compatible versions) ---
 
+function getAxisList(axisParam) {
+  const axis = axisParam || "y";
+  if (axis === "all") return ["x", "y", "z"];
+  const axes = [];
+  if (axis.includes("x")) axes.push("x");
+  if (axis.includes("y")) axes.push("y");
+  if (axis.includes("z")) axes.push("z");
+  return axes.length ? axes : ["y"];
+}
+
 function noiseShape(vertices, params, bbox) {
   // Compute center defensively: the `bbox` received via postMessage is a plain object
   // (structured clone) and may not have Box3 methods. Handle both cases.
@@ -159,29 +169,31 @@ function inflateShape(vertices, params, bbox) {
 }
 
 function twistShape(vertices, params, bbox) {
-  const axis = params.axis || "y";
+  const axes = getAxisList(params.axis);
   const angleDeg = params.angle ?? 180;
   const angle = angleDeg * (Math.PI / 180);
-  const min = bbox.min[axis];
-  const max = bbox.max[axis];
-  const range = max - min || 1;
+  for (const axis of axes) {
+    const min = bbox.min[axis];
+    const max = bbox.max[axis];
+    const range = max - min || 1;
 
-  for (let i = 0; i < vertices.length; i += 3) {
-    const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
-    const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
-    const theta = t * angle;
-    const cos = Math.cos(theta);
-    const sin = Math.sin(theta);
+    for (let i = 0; i < vertices.length; i += 3) {
+      const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+      const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
+      const theta = t * angle;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
 
-    if (axis === "x") {
-      vertices[i + 1] = y * cos - z * sin;
-      vertices[i + 2] = y * sin + z * cos;
-    } else if (axis === "y") {
-      vertices[i] = x * cos - z * sin;
-      vertices[i + 2] = x * sin + z * cos;
-    } else {
-      vertices[i] = x * cos - y * sin;
-      vertices[i + 1] = x * sin + y * cos;
+      if (axis === "x") {
+        vertices[i + 1] = y * cos - z * sin;
+        vertices[i + 2] = y * sin + z * cos;
+      } else if (axis === "y") {
+        vertices[i] = x * cos - z * sin;
+        vertices[i + 2] = x * sin + z * cos;
+      } else {
+        vertices[i] = x * cos - y * sin;
+        vertices[i + 1] = x * sin + y * cos;
+      }
     }
   }
 
@@ -189,44 +201,46 @@ function twistShape(vertices, params, bbox) {
 }
 
 function bendShape(vertices, params, bbox) {
-  const axis = params.axis || "y";
+  const axes = getAxisList(params.axis);
   const strength = params.strength ?? 0.8;
   const angleScale = strength * Math.PI;
-  const min = bbox.min[axis];
-  const max = bbox.max[axis];
-  const range = max - min || 1;
+  for (const axis of axes) {
+    const min = bbox.min[axis];
+    const max = bbox.max[axis];
+    const range = max - min || 1;
 
-  for (let i = 0; i < vertices.length; i += 3) {
-    let x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
-    const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
-    const theta = t * angleScale;
-    const cos = Math.cos(theta);
-    const sin = Math.sin(theta);
+    for (let i = 0; i < vertices.length; i += 3) {
+      let x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+      const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
+      const theta = t * angleScale;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
 
-    if (axis === "x") {
-      const nx = x * cos - y * sin;
-      const ny = x * sin + y * cos;
-      x = nx; y = ny;
-    } else if (axis === "y") {
-      const ny = y * cos - z * sin;
-      const nz = y * sin + z * cos;
-      y = ny; z = nz;
-    } else {
-      const nx = x * cos - z * sin;
-      const nz = x * sin + z * cos;
-      x = nx; z = nz;
+      if (axis === "x") {
+        const nx = x * cos - y * sin;
+        const ny = x * sin + y * cos;
+        x = nx; y = ny;
+      } else if (axis === "y") {
+        const ny = y * cos - z * sin;
+        const nz = y * sin + z * cos;
+        y = ny; z = nz;
+      } else {
+        const nx = x * cos - z * sin;
+        const nz = x * sin + z * cos;
+        x = nx; z = nz;
+      }
+
+      vertices[i] = x;
+      vertices[i + 1] = y;
+      vertices[i + 2] = z;
     }
-
-    vertices[i] = x;
-    vertices[i + 1] = y;
-    vertices[i + 2] = z;
   }
 
   return vertices;
 }
 
 function rippleShape(vertices, params, bbox) {
-  const axis = params.axis || "y";
+  const axes = getAxisList(params.axis);
   const amplitude = params.amplitude ?? 4;
   const frequency = params.frequency ?? 0.3;
   const center = {
@@ -235,18 +249,20 @@ function rippleShape(vertices, params, bbox) {
     z: (bbox.min.z + bbox.max.z) * 0.5
   };
 
-  for (let i = 0; i < vertices.length; i += 3) {
-    const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
-    let r = 0;
-    if (axis === "x") {
-      r = Math.sqrt((y - center.y) ** 2 + (z - center.z) ** 2);
-      vertices[i] = x + Math.sin(r * frequency) * amplitude;
-    } else if (axis === "y") {
-      r = Math.sqrt((x - center.x) ** 2 + (z - center.z) ** 2);
-      vertices[i + 1] = y + Math.sin(r * frequency) * amplitude;
-    } else {
-      r = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
-      vertices[i + 2] = z + Math.sin(r * frequency) * amplitude;
+  for (const axis of axes) {
+    for (let i = 0; i < vertices.length; i += 3) {
+      const x = vertices[i], y = vertices[i + 1], z = vertices[i + 2];
+      let r = 0;
+      if (axis === "x") {
+        r = Math.sqrt((y - center.y) ** 2 + (z - center.z) ** 2);
+        vertices[i] = x + Math.sin(r * frequency) * amplitude;
+      } else if (axis === "y") {
+        r = Math.sqrt((x - center.x) ** 2 + (z - center.z) ** 2);
+        vertices[i + 1] = y + Math.sin(r * frequency) * amplitude;
+      } else {
+        r = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+        vertices[i + 2] = z + Math.sin(r * frequency) * amplitude;
+      }
     }
   }
 
@@ -266,22 +282,24 @@ function warpShape(vertices, params) {
 }
 
 function hyperShape(vertices, params, bbox) {
-  const axis = params.axis || "y";
+  const axes = getAxisList(params.axis);
   const amount = params.amount ?? 0.6;
-  const min = bbox.min[axis];
-  const max = bbox.max[axis];
-  const range = max - min || 1;
-  const center = (min + max) * 0.5;
-  const denom = Math.sinh(amount) || 1;
+  for (const axis of axes) {
+    const min = bbox.min[axis];
+    const max = bbox.max[axis];
+    const range = max - min || 1;
+    const center = (min + max) * 0.5;
+    const denom = Math.sinh(amount) || 1;
 
-  for (let i = 0; i < vertices.length; i += 3) {
-    let v = axis === "x" ? vertices[i] : axis === "y" ? vertices[i + 1] : vertices[i + 2];
-    const t = (v - center) / range;
-    const stretched = Math.sinh(t * amount) / denom;
-    v = center + stretched * range;
-    if (axis === "x") vertices[i] = v;
-    else if (axis === "y") vertices[i + 1] = v;
-    else vertices[i + 2] = v;
+    for (let i = 0; i < vertices.length; i += 3) {
+      let v = axis === "x" ? vertices[i] : axis === "y" ? vertices[i + 1] : vertices[i + 2];
+      const t = (v - center) / range;
+      const stretched = Math.sinh(t * amount) / denom;
+      v = center + stretched * range;
+      if (axis === "x") vertices[i] = v;
+      else if (axis === "y") vertices[i + 1] = v;
+      else vertices[i + 2] = v;
+    }
   }
   return vertices;
 }

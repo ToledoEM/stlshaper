@@ -230,6 +230,10 @@ function noise(x, y, z) {
 
 // --- THREE.js Core Variables ---
 let scene, camera, renderer, controls;
+let axisScene, axisCamera, axisHelper, axisLabels;
+const AXIS_VIEWPORT_SIZE = 160;
+const AXIS_MARGIN = 16;
+const AXIS_CAMERA_DISTANCE = 3.2;
 let container = document.getElementById("container");
 
 // Core model storage
@@ -321,6 +325,42 @@ function normalizeGeometry(geometry) {
   }
 
   return geometry;
+}
+
+function ensureGeometryNormals(geometry) {
+  if (!geometry || !geometry.attributes || !geometry.attributes.position) return;
+  const position = geometry.attributes.position;
+  const normal = geometry.getAttribute("normal");
+
+  let needsNormals = !normal || normal.count !== position.count;
+  if (!needsNormals && normal && normal.array) {
+    const arr = normal.array;
+    let sum = 0;
+    const checkLen = Math.min(arr.length, 300);
+    for (let i = 0; i < checkLen; i++) {
+      const v = arr[i];
+      if (!Number.isFinite(v)) {
+        needsNormals = true;
+        break;
+      }
+      sum += Math.abs(v);
+    }
+    if (sum < 1e-6) needsNormals = true;
+  }
+
+  if (needsNormals) {
+    geometry.computeVertexNormals();
+  }
+}
+
+function getAxisList(axisParam) {
+  const axis = axisParam || "y";
+  if (axis === "all") return ["x", "y", "z"];
+  const axes = [];
+  if (axis.includes("x")) axes.push("x");
+  if (axis.includes("y")) axes.push("y");
+  if (axis.includes("z")) axes.push("z");
+  return axes.length ? axes : ["y"];
 }
 
 function resetDeformedGeometries() {
@@ -849,6 +889,7 @@ function init() {
   // RENDERER
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(width, height);
+  renderer.autoClear = false;
   container.appendChild(renderer.domElement);
 
   // CONTROLS FIX: Check for global OrbitControls or THREE.OrbitControls
@@ -882,6 +923,9 @@ function init() {
   meshGroup = new THREE.Group();
   scene.add(meshGroup);
 
+  // Axis gizmo (bottom-left)
+  setupAxisGizmo();
+
   // Initialize worker pool for parallel processing
   workerPool = new WorkerPool();
 
@@ -909,7 +953,72 @@ function animate() {
   if (controls) {
     controls.update();
   }
+  renderer.clear();
   renderer.render(scene, camera);
+  renderAxisGizmo();
+}
+
+function setupAxisGizmo() {
+  axisScene = new THREE.Scene();
+  axisCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 10);
+  axisCamera.position.set(0, 0, AXIS_CAMERA_DISTANCE);
+
+  axisHelper = new THREE.AxesHelper(0.5);
+  axisScene.add(axisHelper);
+
+  axisLabels = new THREE.Group();
+  axisLabels.add(createAxisLabelSprite("X", 0xff5555, new THREE.Vector3(0.675, 0, 0)));
+  axisLabels.add(createAxisLabelSprite("Y", 0x55ff55, new THREE.Vector3(0, 0.675, 0)));
+  axisLabels.add(createAxisLabelSprite("Z", 0x5555ff, new THREE.Vector3(0, 0, 0.675)));
+  axisScene.add(axisLabels);
+}
+
+function createAxisLabelSprite(text, color, position) {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, size, size);
+  ctx.font = "bold 51px Arial";
+  ctx.fillStyle = `#${color.toString(16).padStart(6, "0")}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, size / 2, size / 2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, depthWrite: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(0.55, 0.55, 0.55);
+  sprite.position.copy(position);
+  return sprite;
+}
+
+function renderAxisGizmo() {
+  if (!axisScene || !axisCamera) return;
+
+  const target = controls ? controls.target : new THREE.Vector3(0, 0, 0);
+  const dir = new THREE.Vector3().subVectors(camera.position, target).normalize();
+  axisCamera.position.copy(dir).multiplyScalar(AXIS_CAMERA_DISTANCE);
+  axisCamera.up.copy(camera.up);
+  axisCamera.lookAt(axisScene.position);
+  axisCamera.updateProjectionMatrix();
+
+  const pixelRatio = renderer.getPixelRatio();
+  const size = AXIS_VIEWPORT_SIZE * pixelRatio;
+  const margin = AXIS_MARGIN * pixelRatio;
+  const width = renderer.domElement.width;
+  const x = Math.max(margin, width - size - margin);
+  const y = margin;
+
+  renderer.clearDepth();
+  renderer.setScissorTest(true);
+  renderer.setViewport(x, y, size, size);
+  renderer.setScissor(x, y, size, size);
+  renderer.render(axisScene, axisCamera);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, renderer.domElement.width, renderer.domElement.height);
 }
 
 function setupListeners() {
@@ -978,6 +1087,19 @@ function setupListeners() {
 
   // Export Settings Button
   document.getElementById("exportSettingsBtn").onclick = exportSettings;
+
+  // Import Settings Button
+  const importSettingsBtn = document.getElementById("importSettingsBtn");
+  const importSettingsInput = document.getElementById("importSettingsInput");
+  if (importSettingsBtn && importSettingsInput) {
+    importSettingsBtn.onclick = () => importSettingsInput.click();
+    importSettingsInput.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      importSettingsFromFile(file);
+      e.target.value = "";
+    });
+  }
 
   // Clear Button
   if (clearBtn) {
@@ -1053,6 +1175,7 @@ function loadDefaultSTL() {
         // Recompute bounds after centering
         originalGeometry.computeBoundingBox();
         originalGeometry.computeBoundingSphere();
+        ensureGeometryNormals(originalGeometry);
         // Reset any previous deformations
         resetDeformedGeometries();
         originalFileName = defaultPath; // Set default file name
@@ -1299,6 +1422,7 @@ function parseSTL(arrayBuffer) {
   // Recompute bounds after centering
   originalGeometry.computeBoundingBox();
   originalGeometry.computeBoundingSphere();
+  ensureGeometryNormals(originalGeometry);
   // Clear any old deformed models when a new file is loaded
   resetDeformedGeometries();
 
@@ -1516,7 +1640,13 @@ function tessellateGeometry(geometry, steps = 1) {
 }
 
 function mengerCarveGeometry(geometry, iterations = 1, keepRatio = 0.7) {
-  const geom = geometry.toNonIndexed();
+  let geom = geometry.toNonIndexed();
+
+  const subdivSteps = Math.max(1, Math.min(2, iterations));
+  if (subdivSteps > 0) {
+    geom = tessellateGeometry(geom, subdivSteps);
+  }
+
   geom.computeBoundingBox();
   const bbox = geom.boundingBox;
   if (!bbox) return geom;
@@ -1530,6 +1660,12 @@ function mengerCarveGeometry(geometry, iterations = 1, keepRatio = 0.7) {
   const arr = position.array;
   const kept = [];
 
+  const edgeMargin = 0.02;
+  const edgeX = size.x * edgeMargin;
+  const edgeY = size.y * edgeMargin;
+  const edgeZ = size.z * edgeMargin;
+
+  const clamp01 = (v) => Math.min(0.999999, Math.max(0, v));
   const hash = (x, y, z) =>
     Math.abs(Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1;
 
@@ -1553,18 +1689,58 @@ function mengerCarveGeometry(geometry, iterations = 1, keepRatio = 0.7) {
     return true;
   };
 
-  for (let i = 0; i < arr.length; i += 9) {
-    const cx = (arr[i] + arr[i + 3] + arr[i + 6]) / 3;
-    const cy = (arr[i + 1] + arr[i + 4] + arr[i + 7]) / 3;
-    const cz = (arr[i + 2] + arr[i + 5] + arr[i + 8]) / 3;
-    const nx = (cx - bbox.min.x) / size.x;
-    const ny = (cy - bbox.min.y) / size.y;
-    const nz = (cz - bbox.min.z) / size.z;
+  const nearOuterEdge = (x, y, z) =>
+    x - bbox.min.x < edgeX ||
+    bbox.max.x - x < edgeX ||
+    y - bbox.min.y < edgeY ||
+    bbox.max.y - y < edgeY ||
+    z - bbox.min.z < edgeZ ||
+    bbox.max.z - z < edgeZ;
 
-    const inside = isInMenger(nx, ny, nz, iterations);
-    if (!inside) continue;
-    if (hash(cx, cy, cz) > keepRatio) continue;
-    for (let j = 0; j < 9; j++) kept.push(arr[i + j]);
+  const ratio = Math.min(1, Math.max(0, keepRatio));
+
+  for (let i = 0; i < arr.length; i += 9) {
+    const ax = arr[i], ay = arr[i + 1], az = arr[i + 2];
+    const bx = arr[i + 3], by = arr[i + 4], bz = arr[i + 5];
+    const cx = arr[i + 6], cy = arr[i + 7], cz = arr[i + 8];
+
+    if (nearOuterEdge(ax, ay, az) || nearOuterEdge(bx, by, bz) || nearOuterEdge(cx, cy, cz)) {
+      kept.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+      continue;
+    }
+
+    const nax = clamp01((ax - bbox.min.x) / size.x);
+    const nay = clamp01((ay - bbox.min.y) / size.y);
+    const naz = clamp01((az - bbox.min.z) / size.z);
+    const nbx = clamp01((bx - bbox.min.x) / size.x);
+    const nby = clamp01((by - bbox.min.y) / size.y);
+    const nbz = clamp01((bz - bbox.min.z) / size.z);
+    const ncx = clamp01((cx - bbox.min.x) / size.x);
+    const ncy = clamp01((cy - bbox.min.y) / size.y);
+    const ncz = clamp01((cz - bbox.min.z) / size.z);
+
+    const keepA = isInMenger(nax, nay, naz, iterations);
+    const keepB = isInMenger(nbx, nby, nbz, iterations);
+    const keepC = isInMenger(ncx, ncy, ncz, iterations);
+
+    if (keepA || keepB || keepC) {
+      kept.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+      continue;
+    }
+
+    if (ratio > 0) {
+      const cxm = (ax + bx + cx) / 3;
+      const cym = (ay + by + cy) / 3;
+      const czm = (az + bz + cz) / 3;
+      if (hash(cxm, cym, czm) < ratio) {
+        kept.push(ax, ay, az, bx, by, bz, cx, cy, cz);
+      }
+    }
+  }
+
+  if (kept.length === 0) {
+    console.warn("Menger carving removed all faces; returning original geometry.");
+    return geom;
   }
 
   const newGeom = new THREE.BufferGeometry();
@@ -1613,6 +1789,7 @@ async function generateCurrent() {
     // Topology-changing methods are handled on main thread
     if (!defEntry.usesWorker) {
       const topologyGeometry = applyTopologyDeformation(currentModelKey, params, workingGeometry);
+      ensureGeometryNormals(topologyGeometry);
       deformedGeometries[currentModelKey] = topologyGeometry;
       const elapsed = performance.now() - startTime;
       updateStats(originalGeometry, topologyGeometry, elapsed);
@@ -1637,6 +1814,7 @@ async function generateCurrent() {
     );
 
     // Store the result
+    ensureGeometryNormals(deformedGeometry);
     deformedGeometries[currentModelKey] = normalizeGeometry(deformedGeometry);
     const elapsed = performance.now() - startTime;
     updateStats(originalGeometry, deformedGeometry, elapsed);
@@ -1716,6 +1894,7 @@ function updateSceneMeshes() {
   // Update camera limits only when geometry changes (do not reset view)
   const geometryChanged = geometryToDraw !== lastGeometryForView;
   if (geometryChanged) {
+    ensureGeometryNormals(geometryToDraw);
     updateCameraForGeometry(geometryToDraw, false);
     lastGeometryForView = geometryToDraw;
   }
@@ -1859,6 +2038,7 @@ function exportSettings() {
       originalFileName: originalFileName,
       deformationType: currentModelKey,
       settings: deformParams[currentModelKey],
+      preprocess: { ...preprocessSettings },
       exportDateTime: new Date().toISOString()
     };
 
@@ -1873,6 +2053,158 @@ function exportSettings() {
   } catch (e) {
     console.error("Settings Export Error:", e);
     statusDisplay.error("Settings export failed. Check console.");
+  }
+}
+
+function importSettingsFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      applyImportedSettings(data);
+    } catch (e) {
+      console.error("Settings Import Error:", e);
+      statusDisplay.error("Invalid settings file.");
+    }
+  };
+  reader.onerror = () => {
+    statusDisplay.error("Failed to read settings file.");
+  };
+  reader.readAsText(file);
+}
+
+function applyImportedSettings(data) {
+  if (!data || typeof data !== "object") {
+    statusDisplay.error("Invalid settings format.");
+    return;
+  }
+  const type = data.deformationType;
+  const settings = data.settings;
+  if (!type || !deformParams[type] || !settings) {
+    statusDisplay.error("Settings missing deformation type or values.");
+    return;
+  }
+
+  deformParams[type] = { ...deformParams[type], ...settings };
+
+  if (data.preprocess && typeof data.preprocess === "object") {
+    if (typeof data.preprocess.decimate === "number") {
+      preprocessSettings.decimate = data.preprocess.decimate;
+    }
+    if (typeof data.preprocess.mergeEpsilon === "number") {
+      preprocessSettings.mergeEpsilon = data.preprocess.mergeEpsilon;
+    }
+  }
+
+  const typeRadio = document.querySelector(`input[name="type"][value="${type}"]`);
+  if (typeRadio) typeRadio.checked = true;
+  currentModelKey = type;
+  setupControlPanels();
+  syncSettingsUI(type);
+
+  statusDisplay.update(`Imported settings for ${type}. Click 'Generate Deformation' to apply.`, false);
+}
+
+function syncSettingsUI(type) {
+  const params = deformParams[type] || {};
+  const setRange = (inputId, valueId, value) => {
+    if (value === undefined || value === null) return;
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.value = value;
+    if (valueId) {
+      const valueEl = document.getElementById(valueId);
+      if (valueEl) valueEl.textContent = value;
+    }
+  };
+  const setSelect = (inputId, value) => {
+    if (value === undefined || value === null) return;
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const option = Array.from(input.options || []).find((opt) => opt.value === value);
+    if (option) input.value = value;
+  };
+  const setCheckbox = (inputId, value) => {
+    if (value === undefined || value === null) return;
+    const input = document.getElementById(inputId);
+    if (input) input.checked = !!value;
+  };
+  const setTextarea = (inputId, value) => {
+    if (value === undefined || value === null) return;
+    const input = document.getElementById(inputId);
+    if (input) input.value = value;
+  };
+  const setNumber = (inputId, valueId, value) => {
+    if (value === undefined || value === null) return;
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.value = value;
+    if (valueId) {
+      const valueEl = document.getElementById(valueId);
+      if (valueEl) valueEl.textContent = value;
+    }
+  };
+
+  if (type === "noise") {
+    setRange("noiseIntensity", "noiseIntensityVal", params.intensity);
+    setRange("noiseScale", "noiseScaleVal", params.scale);
+    setSelect("noiseAxis", params.axis);
+  } else if (type === "sine") {
+    setRange("sineAmp", "sineAmpVal", params.amplitude);
+    setRange("sineFreq", "sineFreqVal", params.frequency);
+    setSelect("sineDriverAxis", params.driverAxis);
+    setSelect("sineDispAxis", params.dispAxis);
+  } else if (type === "pixel") {
+    setRange("pixelSize", "pixelSizeVal", params.size);
+    setSelect("pixelAxis", params.axis);
+  } else if (type === "idw") {
+    setRange("idwNumPoints", "idwNumPointsVal", params.numPoints);
+    setNumber("idwSeed", "idwSeedVal", params.seed);
+    setRange("idwWeight", "idwWeightVal", params.weight);
+    setRange("idwPower", "idwPowerVal", params.power);
+    setRange("idwScale", "idwScaleVal", params.scale);
+    setRange("idwRays", "idwRaysVal", params.rays);
+    setCheckbox("idwManualPoints", params.manualPoints);
+    setTextarea("idwPointsInput", params.pointsText);
+  } else if (type === "inflate") {
+    setRange("inflateAmount", "inflateAmountVal", params.amount);
+  } else if (type === "twist") {
+    setRange("twistAngle", "twistAngleVal", params.angle);
+    setSelect("twistAxis", params.axis);
+  } else if (type === "bend") {
+    setRange("bendStrength", "bendStrengthVal", params.strength);
+    setSelect("bendAxis", params.axis);
+  } else if (type === "ripple") {
+    setRange("rippleAmp", "rippleAmpVal", params.amplitude);
+    setRange("rippleFreq", "rippleFreqVal", params.frequency);
+    setSelect("rippleAxis", params.axis);
+  } else if (type === "warp") {
+    setRange("warpStrength", "warpStrengthVal", params.strength);
+    setRange("warpScale", "warpScaleVal", params.scale);
+  } else if (type === "hyper") {
+    setRange("hyperAmount", "hyperAmountVal", params.amount);
+    setSelect("hyperAxis", params.axis);
+  } else if (type === "tessellate") {
+    setRange("tessellateSteps", "tessellateStepsVal", params.steps);
+  } else if (type === "boundary") {
+    setRange("boundaryThreshold", "boundaryThresholdVal", params.threshold);
+    setRange("boundaryJitter", "boundaryJitterVal", params.jitter);
+  } else if (type === "menger") {
+    setRange("mengerIterations", "mengerIterationsVal", params.iterations);
+    setRange("mengerKeep", "mengerKeepVal", params.keepRatio);
+  }
+
+  const decimate = document.getElementById("decimate");
+  if (decimate) {
+    decimate.value = preprocessSettings.decimate;
+    const val = document.getElementById("decimateVal");
+    if (val) val.textContent = preprocessSettings.decimate;
+  }
+  const merge = document.getElementById("mergeEpsilon");
+  if (merge) {
+    merge.value = preprocessSettings.mergeEpsilon;
+    const val = document.getElementById("mergeVal");
+    if (val) val.textContent = preprocessSettings.mergeEpsilon;
   }
 }
 
@@ -2115,33 +2447,36 @@ function inflateShape(geom, params) {
 }
 
 function twistShape(geom, params) {
-  const axis = params.axis || "y";
+  const axes = getAxisList(params.axis);
   const angleDeg = params.angle ?? 180;
   const angle = angleDeg * (Math.PI / 180);
-  geom.computeBoundingBox();
-  const bbox = geom.boundingBox;
   const pos = geom.getAttribute("position");
   const arr = pos.array;
-  const min = bbox.min[axis];
-  const max = bbox.max[axis];
-  const range = max - min || 1;
 
-  for (let i = 0; i < arr.length; i += 3) {
-    const x = arr[i], y = arr[i + 1], z = arr[i + 2];
-    const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
-    const theta = t * angle;
-    const cos = Math.cos(theta);
-    const sin = Math.sin(theta);
+  for (const axis of axes) {
+    geom.computeBoundingBox();
+    const bbox = geom.boundingBox;
+    const min = bbox.min[axis];
+    const max = bbox.max[axis];
+    const range = max - min || 1;
 
-    if (axis === "x") {
-      arr[i + 1] = y * cos - z * sin;
-      arr[i + 2] = y * sin + z * cos;
-    } else if (axis === "y") {
-      arr[i] = x * cos - z * sin;
-      arr[i + 2] = x * sin + z * cos;
-    } else {
-      arr[i] = x * cos - y * sin;
-      arr[i + 1] = x * sin + y * cos;
+    for (let i = 0; i < arr.length; i += 3) {
+      const x = arr[i], y = arr[i + 1], z = arr[i + 2];
+      const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
+      const theta = t * angle;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+
+      if (axis === "x") {
+        arr[i + 1] = y * cos - z * sin;
+        arr[i + 2] = y * sin + z * cos;
+      } else if (axis === "y") {
+        arr[i] = x * cos - z * sin;
+        arr[i + 2] = x * sin + z * cos;
+      } else {
+        arr[i] = x * cos - y * sin;
+        arr[i + 1] = x * sin + y * cos;
+      }
     }
   }
 
@@ -2153,41 +2488,44 @@ function twistShape(geom, params) {
 }
 
 function bendShape(geom, params) {
-  const axis = params.axis || "y";
+  const axes = getAxisList(params.axis);
   const strength = params.strength ?? 0.8;
   const angleScale = strength * Math.PI;
-  geom.computeBoundingBox();
-  const bbox = geom.boundingBox;
   const pos = geom.getAttribute("position");
   const arr = pos.array;
-  const min = bbox.min[axis];
-  const max = bbox.max[axis];
-  const range = max - min || 1;
 
-  for (let i = 0; i < arr.length; i += 3) {
-    let x = arr[i], y = arr[i + 1], z = arr[i + 2];
-    const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
-    const theta = t * angleScale;
-    const cos = Math.cos(theta);
-    const sin = Math.sin(theta);
+  for (const axis of axes) {
+    geom.computeBoundingBox();
+    const bbox = geom.boundingBox;
+    const min = bbox.min[axis];
+    const max = bbox.max[axis];
+    const range = max - min || 1;
 
-    if (axis === "x") {
-      const nx = x * cos - y * sin;
-      const ny = x * sin + y * cos;
-      x = nx; y = ny;
-    } else if (axis === "y") {
-      const ny = y * cos - z * sin;
-      const nz = y * sin + z * cos;
-      y = ny; z = nz;
-    } else {
-      const nx = x * cos - z * sin;
-      const nz = x * sin + z * cos;
-      x = nx; z = nz;
+    for (let i = 0; i < arr.length; i += 3) {
+      let x = arr[i], y = arr[i + 1], z = arr[i + 2];
+      const t = ((axis === "x" ? x : axis === "y" ? y : z) - min) / range - 0.5;
+      const theta = t * angleScale;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+
+      if (axis === "x") {
+        const nx = x * cos - y * sin;
+        const ny = x * sin + y * cos;
+        x = nx; y = ny;
+      } else if (axis === "y") {
+        const ny = y * cos - z * sin;
+        const nz = y * sin + z * cos;
+        y = ny; z = nz;
+      } else {
+        const nx = x * cos - z * sin;
+        const nz = x * sin + z * cos;
+        x = nx; z = nz;
+      }
+
+      arr[i] = x;
+      arr[i + 1] = y;
+      arr[i + 2] = z;
     }
-
-    arr[i] = x;
-    arr[i + 1] = y;
-    arr[i + 2] = z;
   }
 
   pos.needsUpdate = true;
@@ -2198,28 +2536,31 @@ function bendShape(geom, params) {
 }
 
 function rippleShape(geom, params) {
-  const axis = params.axis || "y";
+  const axes = getAxisList(params.axis);
   const amplitude = params.amplitude ?? 4;
   const frequency = params.frequency ?? 0.3;
-  geom.computeBoundingBox();
-  const bbox = geom.boundingBox;
-  const center = new THREE.Vector3();
-  bbox.getCenter(center);
   const pos = geom.getAttribute("position");
   const arr = pos.array;
 
-  for (let i = 0; i < arr.length; i += 3) {
-    const x = arr[i], y = arr[i + 1], z = arr[i + 2];
-    let r = 0;
-    if (axis === "x") {
-      r = Math.sqrt((y - center.y) ** 2 + (z - center.z) ** 2);
-      arr[i] = x + Math.sin(r * frequency) * amplitude;
-    } else if (axis === "y") {
-      r = Math.sqrt((x - center.x) ** 2 + (z - center.z) ** 2);
-      arr[i + 1] = y + Math.sin(r * frequency) * amplitude;
-    } else {
-      r = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
-      arr[i + 2] = z + Math.sin(r * frequency) * amplitude;
+  for (const axis of axes) {
+    geom.computeBoundingBox();
+    const bbox = geom.boundingBox;
+    const center = new THREE.Vector3();
+    bbox.getCenter(center);
+
+    for (let i = 0; i < arr.length; i += 3) {
+      const x = arr[i], y = arr[i + 1], z = arr[i + 2];
+      let r = 0;
+      if (axis === "x") {
+        r = Math.sqrt((y - center.y) ** 2 + (z - center.z) ** 2);
+        arr[i] = x + Math.sin(r * frequency) * amplitude;
+      } else if (axis === "y") {
+        r = Math.sqrt((x - center.x) ** 2 + (z - center.z) ** 2);
+        arr[i + 1] = y + Math.sin(r * frequency) * amplitude;
+      } else {
+        r = Math.sqrt((x - center.x) ** 2 + (y - center.y) ** 2);
+        arr[i + 2] = z + Math.sin(r * frequency) * amplitude;
+      }
     }
   }
 
@@ -2249,26 +2590,29 @@ function warpShape(geom, params) {
 }
 
 function hyperShape(geom, params) {
-  const axis = params.axis || "y";
+  const axes = getAxisList(params.axis);
   const amount = params.amount ?? 0.6;
-  geom.computeBoundingBox();
-  const bbox = geom.boundingBox;
   const pos = geom.getAttribute("position");
   const arr = pos.array;
-  const min = bbox.min[axis];
-  const max = bbox.max[axis];
-  const range = max - min || 1;
-  const center = (min + max) * 0.5;
-  const denom = Math.sinh(amount) || 1;
 
-  for (let i = 0; i < arr.length; i += 3) {
-    let v = axis === "x" ? arr[i] : axis === "y" ? arr[i + 1] : arr[i + 2];
-    const t = (v - center) / range;
-    const stretched = Math.sinh(t * amount) / denom;
-    v = center + stretched * range;
-    if (axis === "x") arr[i] = v;
-    else if (axis === "y") arr[i + 1] = v;
-    else arr[i + 2] = v;
+  for (const axis of axes) {
+    geom.computeBoundingBox();
+    const bbox = geom.boundingBox;
+    const min = bbox.min[axis];
+    const max = bbox.max[axis];
+    const range = max - min || 1;
+    const center = (min + max) * 0.5;
+    const denom = Math.sinh(amount) || 1;
+
+    for (let i = 0; i < arr.length; i += 3) {
+      let v = axis === "x" ? arr[i] : axis === "y" ? arr[i + 1] : arr[i + 2];
+      const t = (v - center) / range;
+      const stretched = Math.sinh(t * amount) / denom;
+      v = center + stretched * range;
+      if (axis === "x") arr[i] = v;
+      else if (axis === "y") arr[i + 1] = v;
+      else arr[i + 2] = v;
+    }
   }
 
   pos.needsUpdate = true;
