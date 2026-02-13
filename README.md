@@ -2,7 +2,7 @@
 Version: 0.6.0 (2026-02-10)
 
 
-*This is under constant development*
+**This is under constant development and may change at any time :-)** 
 
 This project demonstrates a real-time STL deformation tool using Three.js. It allows you to load an STL file, apply various deformation effects (Noise, Sine Wave, Pixelate, IDW Shepard, plus advanced and topology-altering methods), and visualize the deformed model. It's a tool for pushing the boundaries of what you expect from a 3D model. The goal is to create subtly unsettling, oddly beautiful, and deliberately weird transformations of STL objects. Think of it as a digital sculpting playground.
 
@@ -41,6 +41,11 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
 ## Deformation Examples
 
 <p align="center">
+  <img src="img/original_STL_Deformer_Demo.png" alt="Original STL Model" width="800"/>
+  <br><em>Original STL Model in STLShaper</em>
+</p>
+
+<p align="center">
   <img src="img/noise_STL_Deformer_Demo.png" alt="Noise Deformation" width="800"/>
   <br><em>Noise Deformation in STLShaper</em>
 </p>
@@ -53,6 +58,21 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
 <p align="center">
   <img src="img/pixelated_STL_Deformer_Demo.png" alt="Pixelated Deformation" width="800"/>
   <br><em>Pixelated Deformation in STLShaper</em>
+</p>
+
+<p align="center">
+  <img src="img/bend_STL_Deformer_Demo.png" alt="Bend Deformation" width="800"/>
+  <br><em>Bend Deformation in STLShaper</em>
+</p>
+
+<p align="center">
+  <img src="img/ripple_STL_Deformer_Demo.png" alt="Ripple Deformation" width="800"/>
+  <br><em>Ripple Deformation in STLShaper</em>
+</p>
+
+<p align="center">
+  <img src="img/hyperbolic_STL_Deformer_Demo.png" alt="Hyperbolic Stretch Deformation" width="800"/>
+  <br><em>Hyperbolic Stretch Deformation in STLShaper</em>
 </p>
 
 ## IDW Shepard Deformation
@@ -81,6 +101,13 @@ The IDW (Inverse Distance Weighting) Shepard deformation represents a significan
 *   **Three.js:** r121 (bundled).  This project uses Three.js for 3D rendering and ray casting.
 *   **FileSaver.js:** (Included) For exporting the STL file.
 *   **Web Workers:** Required for parallel processing of large deformations, especially IDW with multiple control points.
+
+## Run Options
+
+You can use STLShaper in either of these ways:
+
+1. **Run locally:** Clone this repository and open `index.html` in a modern browser.
+2. **Run online:** Open the hosted version directly at [https://toledoem.github.io/stlshaper/](https://toledoem.github.io/stlshaper/).
 
 ## Setup
 
@@ -150,3 +177,7 @@ The IDW (Inverse Distance Weighting) Shepard deformation represents a significan
 *   The rendering is slow
 *   Post-procesing is (or can be) needed in meshlab: Filters -> Cleaning and Repairing ->> Remove Zero Area Faces, Remove Zero Area Faces, Repair Non-manifold Edges(split)
 *   IDW Shepard deformation works best with solid, manifold meshes. Complex or thin-walled models may produce unexpected results.
+
+## Changelog
+
+See [changelog.md](changelog.md) for release history.
