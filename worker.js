@@ -335,6 +335,34 @@ function boundaryDisruptShape(vertices, params, bbox) {
   return vertices;
 }
 
+function spherizeShape(vertices, params, bbox) {
+  const factor = params.factor ?? 0.5;
+  let radius = params.radius ?? 0;
+  const cx = (bbox.min.x + bbox.max.x) * 0.5;
+  const cy = (bbox.min.y + bbox.max.y) * 0.5;
+  const cz = (bbox.min.z + bbox.max.z) * 0.5;
+
+  if (radius <= 0) {
+    const sx = bbox.max.x - bbox.min.x;
+    const sy = bbox.max.y - bbox.min.y;
+    const sz = bbox.max.z - bbox.min.z;
+    radius = Math.max(sx, sy, sz) * 0.5;
+  }
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    const dx = vertices[i] - cx;
+    const dy = vertices[i + 1] - cy;
+    const dz = vertices[i + 2] - cz;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-8;
+    const target = dist + (radius - dist) * factor;
+    const scale = target / dist;
+    vertices[i]     = cx + dx * scale;
+    vertices[i + 1] = cy + dy * scale;
+    vertices[i + 2] = cz + dz * scale;
+  }
+  return vertices;
+}
+
 function idwShape(vertices, params) {
   const controlPoints = params.controlPoints || [];
   const weight = params.weight;
@@ -431,6 +459,9 @@ self.onmessage = function(e) {
           break;
         case 'boundary':
           deformedVertices = boundaryDisruptShape(vertices, params, bbox);
+          break;
+        case 'spherize':
+          deformedVertices = spherizeShape(vertices, params, bbox);
           break;
         default:
           throw new Error(`Unknown deformation type: ${deformationType}`);
