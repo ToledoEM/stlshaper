@@ -2352,9 +2352,10 @@ function pixelateShape(geom) {
     geom.setAttribute("position", new THREE.Float32BufferAttribute([], 3));
     geom.deleteAttribute("normal");
   }
-  positionAttribute.needsUpdate = true;
+  const finalAttr = geom.getAttribute('position');
+  finalAttr.needsUpdate = true;
   geom.computeVertexNormals();
-  if (positionAttribute.count > 0) {
+  if (finalAttr.count > 0) {
     geom.computeBoundingBox();
     geom.computeBoundingSphere();
   }
@@ -2644,10 +2645,12 @@ function boundaryDisruptShape(geom, params) {
       Math.abs(y - bbox.min.y) < epsY || Math.abs(y - bbox.max.y) < epsY ||
       Math.abs(z - bbox.min.z) < epsZ || Math.abs(z - bbox.max.z) < epsZ;
     if (!near) continue;
-    const r = (hash(x, y, z) - 0.5) * 2;
-    arr[i] = x + r * jitter;
-    arr[i + 1] = y + r * jitter;
-    arr[i + 2] = z + r * jitter;
+    const rx = (hash(x, y, z) - 0.5) * 2;
+    const ry = (hash(y, z, x) - 0.5) * 2;
+    const rz = (hash(z, x, y) - 0.5) * 2;
+    arr[i] = x + rx * jitter;
+    arr[i + 1] = y + ry * jitter;
+    arr[i + 2] = z + rz * jitter;
   }
 
   pos.needsUpdate = true;
