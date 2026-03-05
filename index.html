@@ -230,6 +230,10 @@
                     ><input type="radio" name="type" value="menger" />
                     Menger Sponge</label
                 >
+                <label
+                    ><input type="radio" name="type" value="spherize" />
+                    Spherize</label
+                >
             </div>
 
             <div id="noiseControls" class="deform-controls">
@@ -692,6 +696,36 @@
                         max="1.0"
                         value="0.7"
                         step="0.05"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="spherizeControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong>Spherize Settings:</strong>
+                <label>
+                    Factor: <span id="spherizeFactorVal">0.5</span>
+                    <input
+                        type="range"
+                        id="spherizeFactor"
+                        min="-1"
+                        max="1"
+                        value="0.5"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    Radius (0=auto): <span id="spherizeRadiusVal">0</span>
+                    <input
+                        type="range"
+                        id="spherizeRadius"
+                        min="0"
+                        max="200"
+                        value="0"
+                        step="1"
                     />
                 </label>
             </div>

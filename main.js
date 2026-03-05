@@ -274,7 +274,8 @@ let deformParams = {
   hyper: { amount: 0.6, axis: "y" },
   tessellate: { steps: 1 },
   boundary: { threshold: 0.08, jitter: 2.0 },
-  menger: { iterations: 1, keepRatio: 0.7 }
+  menger: { iterations: 1, keepRatio: 0.7 },
+  spherize: { factor: 0.5, radius: 0 }
 };
 
 const preprocessSettings = {
@@ -295,7 +296,8 @@ const deformationRegistry = [
   { key: "hyper", label: "Hyperbolic Stretch", controlsId: "hyperControls", usesWorker: true },
   { key: "tessellate", label: "Tessellate", controlsId: "tessellateControls", usesWorker: false },
   { key: "boundary", label: "Boundary Disruption", controlsId: "boundaryControls", usesWorker: true },
-  { key: "menger", label: "Menger Sponge", controlsId: "mengerControls", usesWorker: false }
+  { key: "menger", label: "Menger Sponge", controlsId: "mengerControls", usesWorker: false },
+  { key: "spherize", label: "Spherize", controlsId: "spherizeControls", usesWorker: true }
 ];
 
 function normalizeGeometry(geometry) {
@@ -765,6 +767,8 @@ class WorkerPool {
       return hyperShape(geom, params);
     } else if (deformationType === "boundary") {
       return boundaryDisruptShape(geom, params);
+    } else if (deformationType === "spherize") {
+      return spherizeShape(geom);
     }
 
     return geom;
@@ -1343,6 +1347,10 @@ function setupParameterControls() {
   // Menger
   bindRange("menger", "iterations", "mengerIterations", "mengerIterationsVal", parseInt);
   bindRange("menger", "keepRatio", "mengerKeep", "mengerKeepVal");
+
+  // Spherize
+  bindRange("spherize", "factor", "spherizeFactor", "spherizeFactorVal");
+  bindRange("spherize", "radius", "spherizeRadius", "spherizeRadiusVal");
 
   // Preprocess controls
   const decimate = document.getElementById("decimate");
@@ -2651,6 +2659,44 @@ function boundaryDisruptShape(geom, params) {
     arr[i] = x + rx * jitter;
     arr[i + 1] = y + ry * jitter;
     arr[i + 2] = z + rz * jitter;
+  }
+
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function spherizeShape(geom) {
+  const factor = deformParams.spherize.factor ?? 0.5;
+  let radius = deformParams.spherize.radius ?? 0;
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+
+  geom.computeBoundingBox();
+  const bbox = geom.boundingBox;
+  const cx = (bbox.min.x + bbox.max.x) * 0.5;
+  const cy = (bbox.min.y + bbox.max.y) * 0.5;
+  const cz = (bbox.min.z + bbox.max.z) * 0.5;
+
+  if (radius <= 0) {
+    const sx = bbox.max.x - bbox.min.x;
+    const sy = bbox.max.y - bbox.min.y;
+    const sz = bbox.max.z - bbox.min.z;
+    radius = Math.max(sx, sy, sz) * 0.5;
+  }
+
+  for (let i = 0; i < arr.length; i += 3) {
+    const dx = arr[i] - cx;
+    const dy = arr[i + 1] - cy;
+    const dz = arr[i + 2] - cz;
+    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-8;
+    const target = dist + (radius - dist) * factor;
+    const scale = target / dist;
+    arr[i]     = cx + dx * scale;
+    arr[i + 1] = cy + dy * scale;
+    arr[i + 2] = cz + dz * scale;
   }
 
   pos.needsUpdate = true;
