@@ -1,5 +1,5 @@
 # STLShaper ~ Subversion of Form
-Version: 0.6.0 (2026-02-10)
+Version: 0.7.0 (2026-04-21)
 
 
 **This is under constant development and may change at any time :-)** 
@@ -29,6 +29,7 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
   - **IDW Shepard**: Advanced organic deformation using multiple control points distributed throughout the model's volume via Poisson disk sampling. Creates natural, flowing transformations with localized influence areas.
   - **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.
   - **Tessellate / Boundary Disruption / Menger Sponge**: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.
+  - **Perspective Distortion**: Directional fisheye/barrel distortion controlled by an interactive circle widget. Drag the dot toward any direction to stretch vertices that way; center dot = no effect. Supports 1-point and 2-point vanishing modes, plane selector (XY/XZ/YZ), strength slider, and linear or exponential falloff.
 - **Real-time Deformation**: Updates the deformation in real-time, allowing for interactive experimentation.
 - **Parameter Controls**: Interactive sliders and checkboxes for adjusting deformation parameters.
 - **Adaptive Parameter Ranges**: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.

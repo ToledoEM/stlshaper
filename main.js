@@ -275,7 +275,9 @@ let deformParams = {
   tessellate: { steps: 1 },
   boundary: { threshold: 0.08, jitter: 2.0 },
   menger: { iterations: 1, keepRatio: 0.7 },
-  spherize: { factor: 0.5, radius: 0 }
+  spherize: { factor: 0.5, radius: 0 },
+  persp: { strength: 0.5, mode: "linear", plane: "XY", vpMode: 1,
+           vp1: { x: 0, y: 0 }, vp2: { x: 0, y: 0 } }
 };
 
 const preprocessSettings = {
@@ -297,7 +299,8 @@ const deformationRegistry = [
   { key: "tessellate", label: "Tessellate", controlsId: "tessellateControls", usesWorker: false },
   { key: "boundary", label: "Boundary Disruption", controlsId: "boundaryControls", usesWorker: true },
   { key: "menger", label: "Menger Sponge", controlsId: "mengerControls", usesWorker: false },
-  { key: "spherize", label: "Spherize", controlsId: "spherizeControls", usesWorker: true }
+  { key: "spherize", label: "Spherize", controlsId: "spherizeControls", usesWorker: true },
+  { key: "persp", label: "Perspective Distortion", controlsId: "perspControls", usesWorker: true }
 ];
 
 function normalizeGeometry(geometry) {
@@ -769,6 +772,8 @@ class WorkerPool {
       return boundaryDisruptShape(geom, params);
     } else if (deformationType === "spherize") {
       return spherizeShape(geom);
+    } else if (deformationType === "persp") {
+      return perspShape(geom);
     }
 
     return geom;
@@ -1223,6 +1228,90 @@ function setupControlPanels() {
   updateControlPointVisualization();
 }
 
+function setupPerspCanvas(updateHandler) {
+  const canvas = document.getElementById("perspCanvas");
+  if (!canvas) return null;
+  const ctx = canvas.getContext("2d");
+  const R = 52, cx = 60, cy = 60;
+  let dragging = null;
+
+  function dotScreen(vp) {
+    return { x: cx + vp.x * R, y: cy - vp.y * R };
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, 120, 120);
+    ctx.strokeStyle = "#555";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "#3a3a3a";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx + R, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
+
+    const p1 = dotScreen(deformParams.persp.vp1);
+    ctx.fillStyle = "#6cf";
+    ctx.beginPath(); ctx.arc(p1.x, p1.y, 7, 0, Math.PI * 2); ctx.fill();
+
+    if (deformParams.persp.vpMode === 2) {
+      const p2 = dotScreen(deformParams.persp.vp2);
+      ctx.fillStyle = "#fa6";
+      ctx.beginPath(); ctx.arc(p2.x, p2.y, 7, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function toUnit(sx, sy) {
+    let dx = (sx - cx) / R, dy = -(sy - cy) / R;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 1) { dx /= len; dy /= len; }
+    return { x: dx, y: dy };
+  }
+
+  function hit(sx, sy, vp) {
+    const p = dotScreen(vp);
+    return Math.sqrt((sx - p.x) ** 2 + (sy - p.y) ** 2) < 12;
+  }
+
+  function getXY(e) {
+    const rect = canvas.getBoundingClientRect();
+    if (e.touches) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function onDown(e) {
+    e.preventDefault();
+    const { x, y } = getXY(e);
+    if (hit(x, y, deformParams.persp.vp1)) { dragging = 1; return; }
+    if (deformParams.persp.vpMode === 2 && hit(x, y, deformParams.persp.vp2)) { dragging = 2; return; }
+    dragging = 1;
+    deformParams.persp.vp1 = toUnit(x, y);
+    draw(); updateHandler("persp");
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const { x, y } = getXY(e);
+    const v = toUnit(x, y);
+    if (dragging === 1) deformParams.persp.vp1 = v;
+    else deformParams.persp.vp2 = v;
+    draw(); updateHandler("persp");
+  }
+
+  function onUp() { dragging = null; }
+
+  canvas.addEventListener("mousedown", onDown);
+  canvas.addEventListener("mousemove", onMove);
+  canvas.addEventListener("mouseup", onUp);
+  canvas.addEventListener("mouseleave", onUp);
+  canvas.addEventListener("touchstart", onDown, { passive: false });
+  canvas.addEventListener("touchmove", onMove, { passive: false });
+  canvas.addEventListener("touchend", onUp);
+
+  draw();
+  return draw;
+}
+
 function setupParameterControls() {
   const updateHandler = (key) => {
     if (originalGeometry && currentModelKey === key) {
@@ -1351,6 +1440,21 @@ function setupParameterControls() {
   // Spherize
   bindRange("spherize", "factor", "spherizeFactor", "spherizeFactorVal");
   bindRange("spherize", "radius", "spherizeRadius", "spherizeRadiusVal");
+
+  // Perspective Distortion
+  bindRange("persp", "strength", "perspStrength", "perspStrengthVal");
+  bindSelect("persp", "mode", "perspMode");
+  bindSelect("persp", "plane", "perspPlane");
+
+  const drawPerspCanvas = setupPerspCanvas(updateHandler);
+
+  document.querySelectorAll('input[name="vpMode"]').forEach(r => {
+    r.addEventListener("change", e => {
+      deformParams.persp.vpMode = parseInt(e.target.value);
+      if (drawPerspCanvas) drawPerspCanvas();
+      updateHandler("persp");
+    });
+  });
 
   // Preprocess controls
   const decimate = document.getElementById("decimate");
@@ -2697,6 +2801,59 @@ function spherizeShape(geom) {
     arr[i]     = cx + dx * scale;
     arr[i + 1] = cy + dy * scale;
     arr[i + 2] = cz + dz * scale;
+  }
+
+  pos.needsUpdate = true;
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+  return geom;
+}
+
+function perspVpTo3D(vp, plane) {
+  if (plane === "XZ") return { x: vp.x, y: 0, z: vp.y };
+  if (plane === "YZ") return { x: 0, y: vp.x, z: vp.y };
+  return { x: vp.x, y: vp.y, z: 0 }; // XY default
+}
+
+function perspApplyVP(arr, cx, cy, cz, dir, strength, mode) {
+  const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+  if (len < 1e-6) return;
+  const nx = dir.x / len, ny = dir.y / len, nz = dir.z / len;
+
+  let projMax = 0;
+  for (let i = 0; i < arr.length; i += 3) {
+    const p = (arr[i] - cx) * nx + (arr[i + 1] - cy) * ny + (arr[i + 2] - cz) * nz;
+    if (Math.abs(p) > projMax) projMax = Math.abs(p);
+  }
+  if (projMax === 0) return;
+
+  for (let i = 0; i < arr.length; i += 3) {
+    const proj = (arr[i] - cx) * nx + (arr[i + 1] - cy) * ny + (arr[i + 2] - cz) * nz;
+    const t = proj / projMax;
+    const scale = mode === "exponential" ? strength * t * t : strength * t;
+    arr[i]     += nx * scale * projMax;
+    arr[i + 1] += ny * scale * projMax;
+    arr[i + 2] += nz * scale * projMax;
+  }
+}
+
+function perspShape(geom) {
+  const { strength, mode, plane, vpMode, vp1, vp2 } = deformParams.persp;
+
+  geom.computeBoundingBox();
+  const center = new THREE.Vector3();
+  geom.boundingBox.getCenter(center);
+
+  const pos = geom.getAttribute("position");
+  const arr = pos.array;
+
+  const dir1 = perspVpTo3D(vp1, plane);
+  perspApplyVP(arr, center.x, center.y, center.z, dir1, strength ?? 0.5, mode ?? "linear");
+
+  if ((vpMode ?? 1) === 2) {
+    const dir2 = perspVpTo3D(vp2, plane);
+    perspApplyVP(arr, center.x, center.y, center.z, dir2, strength ?? 0.5, mode ?? "linear");
   }
 
   pos.needsUpdate = true;
