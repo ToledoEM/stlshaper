@@ -417,6 +417,53 @@ function idwShape(vertices, params) {
   return vertices;
 }
 
+function perspVpTo3D(vp, plane) {
+  if (plane === "XZ") return { x: vp.x, y: 0, z: vp.y };
+  if (plane === "YZ") return { x: 0, y: vp.x, z: vp.y };
+  return { x: vp.x, y: vp.y, z: 0 };
+}
+
+function perspApplyVP(vertices, cx, cy, cz, dir, strength, mode) {
+  const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+  if (len < 1e-6) return;
+  const nx = dir.x / len, ny = dir.y / len, nz = dir.z / len;
+
+  let projMax = 0;
+  for (let i = 0; i < vertices.length; i += 3) {
+    const p = (vertices[i] - cx) * nx + (vertices[i + 1] - cy) * ny + (vertices[i + 2] - cz) * nz;
+    if (Math.abs(p) > projMax) projMax = Math.abs(p);
+  }
+  if (projMax === 0) return;
+
+  for (let i = 0; i < vertices.length; i += 3) {
+    const proj = (vertices[i] - cx) * nx + (vertices[i + 1] - cy) * ny + (vertices[i + 2] - cz) * nz;
+    const t = proj / projMax;
+    const scale = mode === "exponential" ? strength * t * t : strength * t;
+    vertices[i]     += nx * scale * projMax;
+    vertices[i + 1] += ny * scale * projMax;
+    vertices[i + 2] += nz * scale * projMax;
+  }
+}
+
+function perspShape(vertices, params, bbox) {
+  const strength = params.strength ?? 0.5;
+  const mode = params.mode ?? "linear";
+  const plane = params.plane ?? "XY";
+  const vpMode = params.vpMode ?? 1;
+  const vp1 = params.vp1 ?? { x: 0, y: 0 };
+  const vp2 = params.vp2 ?? { x: 0, y: 0 };
+
+  const cx = (bbox.min.x + bbox.max.x) * 0.5;
+  const cy = (bbox.min.y + bbox.max.y) * 0.5;
+  const cz = (bbox.min.z + bbox.max.z) * 0.5;
+
+  perspApplyVP(vertices, cx, cy, cz, perspVpTo3D(vp1, plane), strength, mode);
+  if (vpMode === 2) {
+    perspApplyVP(vertices, cx, cy, cz, perspVpTo3D(vp2, plane), strength, mode);
+  }
+  return vertices;
+}
+
 // --- Worker Message Handling ---
 
 self.onmessage = function(e) {
@@ -462,6 +509,9 @@ self.onmessage = function(e) {
           break;
         case 'spherize':
           deformedVertices = spherizeShape(vertices, params, bbox);
+          break;
+        case 'persp':
+          deformedVertices = perspShape(vertices, params, bbox);
           break;
         default:
           throw new Error(`Unknown deformation type: ${deformationType}`);

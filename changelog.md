@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.0] - 2026-04-21
+### Added
+- Perspective Distortion deformation with interactive vanishing-point picker widget.
+- Circle canvas widget with draggable dot(s) to set distortion direction — dot position = stretch direction, center = no effect.
+- 1-point and 2-point mode: second orange dot adds a second independent vanishing point.
+- Plane selector (XY / XZ / YZ) maps widget axes to model space.
+- Linear and exponential falloff modes for distortion strength.
+- Touch support for the canvas widget.
+
 ## [0.6.0] - 2026-02-10
 ### Added
 - Importable deformation settings to reuse presets across STLs.
