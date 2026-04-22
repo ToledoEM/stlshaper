@@ -1546,7 +1546,52 @@ function parseSTL(arrayBuffer) {
     "STL Loaded. Vertices:",
     originalGeometry.attributes.position.count,
   );
+
+  checkModelScale();
 }
+
+function checkModelScale() {
+  if (!originalGeometry) return;
+  originalGeometry.computeBoundingSphere();
+  const radius = originalGeometry.boundingSphere?.radius || 0;
+  const prompt = document.getElementById("scale-prompt");
+  if (!prompt) return;
+  // Camera sits at radius * 2.5; if model radius > 500 it's likely real-world mm scale
+  if (radius > 500) {
+    prompt.style.display = "block";
+  } else {
+    prompt.style.display = "none";
+  }
+}
+
+function applyModelScale(factor) {
+  if (!originalGeometry) return;
+  const prompt = document.getElementById("scale-prompt");
+  if (prompt) prompt.style.display = "none";
+
+  originalGeometry.computeBoundingSphere();
+  const radius = originalGeometry.boundingSphere?.radius || 1;
+
+  // Auto: scale so radius fits ~80% of a 100-unit camera distance
+  const scale = factor !== null ? factor : (80 / radius);
+
+  const pos = originalGeometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setX(i, pos.getX(i) * scale);
+    pos.setY(i, pos.getY(i) * scale);
+    pos.setZ(i, pos.getZ(i) * scale);
+  }
+  pos.needsUpdate = true;
+  originalGeometry.computeBoundingBox();
+  originalGeometry.computeBoundingSphere();
+  originalGeometry.computeVertexNormals();
+  resetDeformedGeometries();
+  updateAdaptiveParameterRanges();
+  updateStats(originalGeometry, null, null);
+  updateSceneMeshes();
+  updateCameraForGeometry(originalGeometry, true);
+}
+window.applyModelScale = applyModelScale;
 
 function applyPreprocess(sourceGeometry) {
   if (!sourceGeometry) return sourceGeometry;
