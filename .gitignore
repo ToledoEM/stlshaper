@@ -58,9 +58,10 @@ future.md
 FutureDev.md
 # Claude Code
 .claude/
-NOTES.md
-CLAUDE.md
 newgui/
 
+# Quarto
 /.quarto/
 **/*.quarto_ipynb
+documentation_files/
+documentation.html
