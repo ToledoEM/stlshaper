@@ -145,13 +145,48 @@
                 color: #bbb;
                 line-height: 1.3em;
             }
+
+            #scale-prompt {
+                display: none;
+                position: absolute;
+                top: 14px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 2000;
+                background: #1a1a1a;
+                border: 1px solid #555;
+                border-radius: 4px;
+                padding: 10px 16px;
+                color: #ccc;
+                font-size: 0.85em;
+                text-align: center;
+                white-space: nowrap;
+            }
+            #scale-prompt span {
+                display: block;
+                margin-bottom: 8px;
+                color: #aaa;
+            }
+            #scale-prompt button {
+                margin: 0 4px;
+                padding: 4px 10px;
+                background: #333;
+                border: 1px solid #555;
+                border-radius: 3px;
+                color: #ccc;
+                cursor: pointer;
+                font-size: 0.9em;
+            }
+            #scale-prompt button:hover {
+                background: #444;
+            }
         </style>
     </head>
     <body>
         <div id="ui">
             <div id="status">Ready to load STL.</div>
 
-            <div id="progressContainer" style="display: none;">
+            <div id="progressContainer" style="display: none">
                 <div
                     id="progressBar"
                     style="
@@ -191,8 +226,8 @@
                     Pixelate</label
                 >
                 <label
-                    ><input type="radio" name="type" value="idw" />
-                    IDW Shepard</label
+                    ><input type="radio" name="type" value="idw" /> IDW
+                    Shepard</label
                 >
                 <label
                     ><input type="radio" name="type" value="inflate" />
@@ -203,20 +238,18 @@
                     Twist</label
                 >
                 <label
-                    ><input type="radio" name="type" value="bend" />
-                    Bend</label
+                    ><input type="radio" name="type" value="bend" /> Bend</label
                 >
                 <label
                     ><input type="radio" name="type" value="ripple" />
                     Ripple</label
                 >
                 <label
-                    ><input type="radio" name="type" value="warp" />
-                    Warp</label
+                    ><input type="radio" name="type" value="warp" /> Warp</label
                 >
                 <label
-                    ><input type="radio" name="type" value="hyper" />
-                    Hyperbolic Stretch</label
+                    ><input type="radio" name="type" value="hyper" /> Hyperbolic
+                    Stretch</label
                 >
                 <label
                     ><input type="radio" name="type" value="tessellate" />
@@ -227,8 +260,8 @@
                     Boundary Disruption</label
                 >
                 <label
-                    ><input type="radio" name="type" value="menger" />
-                    Menger Sponge</label
+                    ><input type="radio" name="type" value="menger" /> Menger
+                    Sponge</label
                 >
                 <label
                     ><input type="radio" name="type" value="spherize" />
@@ -359,11 +392,7 @@
                 </label>
             </div>
 
-            <div
-                id="idwControls"
-                class="deform-controls"
-                style="display: none"
-            >
+            <div id="idwControls" class="deform-controls" style="display: none">
                 <strong>IDW Shepard Settings:</strong>
                 <label>
                     Number of Points: <span id="idwNumPointsVal">8</span>
@@ -437,7 +466,17 @@
                 </label>
                 <label>
                     Points (x,y,z per line):
-                    <textarea id="idwPointsInput" rows="4" style="width:100%; background:#222; color:#ccc; border:1px solid #555; border-radius:3px;"></textarea>
+                    <textarea
+                        id="idwPointsInput"
+                        rows="4"
+                        style="
+                            width: 100%;
+                            background: #222;
+                            color: #ccc;
+                            border: 1px solid #555;
+                            border-radius: 3px;
+                        "
+                    ></textarea>
                 </label>
             </div>
 
@@ -740,21 +779,54 @@
                 style="display: none"
             >
                 <strong>Perspective Distortion Settings:</strong>
-                <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <label
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                    "
+                >
                     <span>Points:</span>
-                    <label style="display:inline-flex;align-items:center;gap:3px;font-size:0.85em">
-                        <input type="radio" name="vpMode" value="1" checked /> 1-point
+                    <label
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 3px;
+                            font-size: 0.85em;
+                        "
+                    >
+                        <input type="radio" name="vpMode" value="1" checked />
+                        1-point
                     </label>
-                    <label style="display:inline-flex;align-items:center;gap:3px;font-size:0.85em">
+                    <label
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 3px;
+                            font-size: 0.85em;
+                        "
+                    >
                         <input type="radio" name="vpMode" value="2" /> 2-point
                     </label>
                 </label>
-                <div style="display:flex;justify-content:center;margin:8px 0">
+                <div
+                    style="
+                        display: flex;
+                        justify-content: center;
+                        margin: 8px 0;
+                    "
+                >
                     <canvas
                         id="perspCanvas"
                         width="120"
                         height="120"
-                        style="cursor:crosshair;border-radius:50%;background:#222;display:block"
+                        style="
+                            cursor: crosshair;
+                            border-radius: 50%;
+                            background: #222;
+                            display: block;
+                        "
                     ></canvas>
                 </div>
                 <label>
@@ -811,9 +883,11 @@
                 </label>
             </div>
 
-            <div style="display:flex; gap:8px; align-items:center;">
-                <button id="processBtn" disabled style="flex:1;">Generate Deformation</button>
-                <button id="clearBtn" style="flex:0 0 auto;">Clear</button>
+            <div style="display: flex; gap: 8px; align-items: center">
+                <button id="processBtn" disabled style="flex: 1">
+                    Generate Deformation
+                </button>
+                <button id="clearBtn" style="flex: 0 0 auto">Clear</button>
             </div>
 
             <div>
@@ -830,7 +904,9 @@
                         <option value="both">Wireframe + Solid</option>
                     </select>
                 </label>
-                <button id="resetViewBtn" style="margin-top:6px;">Reset View</button>
+                <button id="resetViewBtn" style="margin-top: 6px">
+                    Reset View
+                </button>
             </div>
 
             <button id="exportBtn" disabled>Export Current STL</button>
@@ -846,14 +922,41 @@
 
             <div id="stats">Stats: N/A</div>
 
-            <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #555; text-align: center; font-size: 0.8em; color: #888;">
-                STLShaper <a href="https://toledoem.github.io/" target="_blank" style="color: #6cf; text-decoration: none;">ToledoEM</a>, MIT license
+            <div
+                style="
+                    margin-top: 15px;
+                    padding-top: 10px;
+                    border-top: 1px solid #555;
+                    text-align: center;
+                    font-size: 0.8em;
+                    color: #888;
+                "
+            >
+                STLShaper
+                <a
+                    href="https://toledoem.github.io/"
+                    target="_blank"
+                    style="color: #6cf; text-decoration: none"
+                    >ToledoEM</a
+                >, MIT license
                 <br />
-                <a href="https://toledoem.github.io/stlshaper.html" target="_blank" style="color: #6cf; text-decoration: none;">Documentation</a>
+                <a
+                    href="https://toledoem.github.io/stlshaper/documentation.html"
+                    target="_blank"
+                    style="color: #6cf; text-decoration: none"
+                    >Documentation</a
+                >
             </div>
         </div>
 
         <div id="container"></div>
+        <div id="scale-prompt">
+            <span>Model is very large — scale down for better viewing?</span>
+            <button onclick="applyModelScale(0.1)">10%</button>
+            <button onclick="applyModelScale(0.2)">20%</button>
+            <button onclick="applyModelScale(0.5)">50%</button>
+            <button onclick="applyModelScale(null)">Auto</button>
+        </div>
 
         <script type="module">
             import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.121.1/build/three.module.js";

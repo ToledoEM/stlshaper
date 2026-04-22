@@ -60,3 +60,7 @@ FutureDev.md
 .claude/
 NOTES.md
 CLAUDE.md
+newgui/
+
+/.quarto/
+**/*.quarto_ipynb
