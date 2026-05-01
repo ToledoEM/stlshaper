@@ -4,14 +4,12 @@ Version: 0.7.0 (2026-04-21)
 
 **This is under constant development and may change at any time :-)** 
 
-This project demonstrates a real-time STL deformation tool using Three.js. It allows you to load an STL file, apply various deformation effects (Noise, Sine Wave, Pixelate, IDW Shepard, plus advanced and topology-altering methods), and visualize the deformed model. It's a tool for pushing the boundaries of what you expect from a 3D model. The goal is to create subtly unsettling, oddly beautiful, and deliberately weird transformations of STL objects. Think of it as a digital sculpting playground.
-
-Transform your 3D models into something unexpected, unsettling, and strangely beautiful. This experimental tool lets you push the boundaries of what's possible with STL files, creating deliberate distortions and abstract variations of your models. Think of it as a digital sculpture lab where mathematical chaos meets artistic expression.
+STLShaper loads STL files and applies mathematical deformations: noise, sine waves, pixelation, IDW control points, and topology-altering methods. You adjust parameters and export the result. The point is to make your models deliberately weird—unsettling, beautiful, broken.
 
 ## Motivation & Creative Exploration
 
 - Subversion of Form: This project isn’t about perfect realism. It's about deliberately distorting the familiar, creating unsettling or intriguing shapes.
-- Algorithmic Abstraction: Explore how mathematical functions (noise, sine waves, inverse distance weighting) can be used to transform 3D geometry and change the practicality of 3d shapes.
+- Algorithmic Abstraction: Noise, sine waves, and inverse distance weighting deform geometry in predictable and chaotic ways.
 - Visual Metaphors: Consider how different deformations might represent abstract concepts – chaos, tension, growth, decay, organic transformation.
 
 
@@ -24,9 +22,9 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
 - **STL Loading**: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).
 - **Deformation Effects**:
   - **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion.
-  - **Sine Wave**: Generates a sinusoidal wave deformation, producing rhythmic, flowing changes – potentially creating mesmerizing, pulsating effects.
+  - **Sine Wave**: Displaces vertices along a sine curve, creating rhythmic ripples across the model.
   - **Pixelate**: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.
-  - **IDW Shepard**: Advanced organic deformation using multiple control points distributed throughout the model's volume via Poisson disk sampling. Creates natural, flowing transformations with localized influence areas.
+  - **IDW Shepard**: Multiple control points scattered through the model's interior. Each vertex moves based on distance to those points—closer points pull harder.
   - **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.
   - **Tessellate / Boundary Disruption / Menger Sponge**: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.
   - **Perspective Distortion**: Directional fisheye/barrel distortion controlled by an interactive circle widget. Drag the dot toward any direction to stretch vertices that way; center dot = no effect. Supports 1-point and 2-point vanishing modes, plane selector (XY/XZ/YZ), strength slider, and linear or exponential falloff.
@@ -78,7 +76,7 @@ Transform your 3D models into something unexpected, unsettling, and strangely be
 
 ## IDW Shepard Deformation
 
-The IDW (Inverse Distance Weighting) Shepard deformation represents a significant advancement in organic 3D manipulation. Unlike traditional single-point deformations, this method uses multiple control points strategically placed throughout the model's interior volume.
+Control points pull vertices based on distance. Closer points pull harder. The result: smooth, organic bending without the grid-like feel of axis-based or noise-driven methods.
 
 ### Key Features:
 - **Poisson Disk Sampling**: Control points are distributed using Poisson disk sampling to ensure even coverage and prevent clustering
@@ -173,12 +171,26 @@ You can use STLShaper in either of these ways:
 
 ## Notes
 
-*   This is a basic demonstration and can be extended with more advanced features.
-*   The performance of the deformation can depend on the complexity of the STL model and the chosen deformation algorithm.
-*   The rendering is slow
-*   Post-procesing is (or can be) needed in meshlab: Filters -> Cleaning and Repairing ->> Remove Zero Area Faces, Remove Zero Area Faces, Repair Non-manifold Edges(split)
+*   Performance depends on model complexity and chosen algorithm.
+*   Rendering can be slow with dense meshes.
+*   After deformation, you may need to repair the mesh in Meshlab: Filters → Cleaning and Repairing → Remove Zero Area Faces, Repair Non-manifold Edges.
 *   IDW Shepard deformation works best with solid, manifold meshes. Complex or thin-walled models may produce unexpected results.
 
-## Changelog
+## License & Attributions
 
-See [changelog.md](changelog.md) for release history.
+**STLShaper** is released under the [MIT License](LICENSE).
+
+For a detailed breakdown of third-party libraries and attributions, see the [License & Attributions](https://toledoem.github.io/stlshaper/documentation.html#license--attributions) section in the full documentation.
+
+### Quick Reference
+
+- **Three.js** (v0.121.1) – [MIT License](https://github.com/mrdoob/three.js/blob/master/LICENSE)
+- **Bootstrap Icons** – [MIT License](https://github.com/twbs/icons/blob/HEAD/LICENSE)
+- **FileSaver.js** – [MIT License](https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md)
+- **NIH 3D Print Exchange** – [Public Domain](https://3dprint.nih.gov/)
+
+Built by **Enrique Toledo** ([@ToledoEM](https://toledoem.github.io/))
+
+---
+
+**Disclaimer:** This tool is provided as-is for experimental and educational purposes. The deformations applied are artistic and mathematical in nature and may not preserve properties required for 3D printing or clinical use. Always validate exported models for your specific use case.
