@@ -3,30 +3,121 @@
     <head>
         <meta charset="utf-8" />
         <title>STLShaper - STL Deformation Tool</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
         <style>
+            :root {
+                --bg-page: #262626;
+                --bg-ui: #222;
+                --bg-control: #333;
+                --bg-status: #444;
+                --bg-input: #222;
+                --bg-select: #444;
+                --bg-btn: #555;
+                --bg-btn-hover: #666;
+                --text-main: #ccc;
+                --text-stats: #bbb;
+                --accent: #6cf;
+                --border: #555;
+                --bg-canvas: #333;
+            }
+
+            [data-theme="light"] {
+                --bg-page: #f0f0f0;
+                --bg-ui: #ffffff;
+                --bg-control: #f4f4f4;
+                --bg-status: #e8e8e8;
+                --bg-input: #fff;
+                --bg-select: #eee;
+                --bg-btn: #ddd;
+                --bg-btn-hover: #ccc;
+                --text-main: #222;
+                --text-stats: #444;
+                --accent: #2a6fa8;
+                --border: #ccc;
+                --bg-canvas: #d0d0d0;
+            }
+
             body {
                 margin: 0;
-                background: #262626;
-                color: #ccc;
+                background: var(--bg-page);
+                color: var(--text-main);
                 font-family: Arial;
                 position: relative;
                 height: 100vh;
                 overflow: hidden;
             }
 
+            #topbar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 44px;
+                background: var(--bg-ui);
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                padding: 0 16px;
+                z-index: 1001;
+                gap: 12px;
+            }
+
+            #topbar-title {
+                font-weight: bold;
+                font-size: 1em;
+                flex: 1;
+                color: var(--text-main);
+            }
+
+            .topbar-btn {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                padding: 6px 12px;
+                font-size: 0.85em;
+                background: var(--bg-btn);
+                color: var(--text-main);
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+
+            .topbar-btn:hover:not(:disabled) {
+                background: var(--bg-btn-hover);
+            }
+
+            .topbar-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            #topbar a {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                color: var(--text-stats);
+                text-decoration: none;
+            }
+
+            #topbar a:hover {
+                color: var(--accent);
+            }
+
             #ui {
                 position: absolute;
-                top: 10px;
+                top: 54px;
                 left: 10px;
-                background: #222;
-                padding: 15px;
+                background: var(--bg-ui);
+                padding: 20px;
                 border-radius: 4px;
                 z-index: 1000;
                 display: flex;
                 flex-direction: column;
                 gap: 10px;
-                width: 250px;
-                max-height: calc(100vh - 20px);
+                width: 300px;
+                max-height: calc(100vh - 64px);
                 overflow-y: auto;
                 overscroll-behavior: contain;
             }
@@ -48,7 +139,7 @@
             }
 
             .deform-controls {
-                background: #333;
+                background: var(--bg-control);
                 padding: 8px;
                 border-radius: 3px;
                 margin: 5px 0;
@@ -66,15 +157,15 @@
             .deform-controls select {
                 width: 100%;
                 padding: 4px;
-                background: #444;
-                color: #ccc;
-                border: 1px solid #555;
+                background: var(--bg-select);
+                color: var(--text-main);
+                border: 1px solid var(--border);
                 border-radius: 3px;
             }
 
             .deform-controls span {
                 float: right;
-                color: #6cf;
+                color: var(--accent);
                 font-weight: bold;
             }
 
@@ -82,7 +173,7 @@
                 height: 70px;
                 line-height: 14px;
                 padding: 5px;
-                background: #444;
+                background: var(--bg-status);
                 border-radius: 3px;
                 text-align: center;
                 font-size: 0.9em;
@@ -98,29 +189,29 @@
             #progressBar {
                 width: 100%;
                 height: 8px;
-                background: #333;
+                background: var(--bg-control);
                 border-radius: 4px;
                 overflow: hidden;
             }
 
             #progressFill {
                 height: 100%;
-                background: #6cf;
+                background: var(--accent);
                 width: 0%;
                 transition: width 0.3s ease;
             }
 
             button {
                 padding: 8px;
-                background: #555;
-                color: #fff;
+                background: var(--bg-btn);
+                color: var(--text-main);
                 border: none;
                 border-radius: 3px;
                 cursor: pointer;
             }
 
             button:hover:not(:disabled) {
-                background: #666;
+                background: var(--bg-btn-hover);
             }
 
             button:disabled {
@@ -139,10 +230,10 @@
 
             #stats {
                 padding: 6px;
-                background: #333;
+                background: var(--bg-control);
                 border-radius: 3px;
                 font-size: 0.8em;
-                color: #bbb;
+                color: var(--text-stats);
                 line-height: 1.3em;
             }
 
@@ -153,11 +244,11 @@
                 left: 50%;
                 transform: translateX(-50%);
                 z-index: 2000;
-                background: #1a1a1a;
-                border: 1px solid #555;
+                background: var(--bg-page);
+                border: 1px solid var(--border);
                 border-radius: 4px;
                 padding: 10px 16px;
-                color: #ccc;
+                color: var(--text-main);
                 font-size: 0.85em;
                 text-align: center;
                 white-space: nowrap;
@@ -165,24 +256,169 @@
             #scale-prompt span {
                 display: block;
                 margin-bottom: 8px;
-                color: #aaa;
+                color: var(--text-stats);
             }
             #scale-prompt button {
                 margin: 0 4px;
                 padding: 4px 10px;
-                background: #333;
-                border: 1px solid #555;
+                background: var(--bg-control);
+                border: 1px solid var(--border);
                 border-radius: 3px;
-                color: #ccc;
+                color: var(--text-main);
                 cursor: pointer;
                 font-size: 0.9em;
             }
             #scale-prompt button:hover {
-                background: #444;
+                background: var(--bg-status);
+            }
+
+            #githubLink {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                margin-right: 5px;
+                color: var(--text-stats);
+                text-decoration: none;
+                line-height: 20px;
+            }
+
+            #githubLink:hover {
+                color: var(--accent);
+            }
+
+            #themeToggle {
+                padding: 6px 10px;
+                font-size: 1.1em;
+                line-height: 1;
+            }
+
+            #welcomeOverlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.6);
+                z-index: 2000;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #welcomeModal {
+                background: var(--bg-ui);
+                color: var(--text-main);
+                border-radius: 12px;
+                padding: 30px;
+                max-width: 500px;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+                position: relative;
+            }
+
+            #welcomeClose {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                width: 32px;
+                height: 32px;
+                padding: 0;
+                background: transparent;
+                color: var(--text-stats);
+                font-size: 24px;
+                line-height: 1;
+                border: none;
+                cursor: pointer;
+            }
+
+            #welcomeClose:hover {
+                color: var(--accent);
+                background: transparent;
+            }
+
+            #welcomeModal h2 {
+                margin: 0 0 8px 0;
+                font-size: 1.6em;
+                color: var(--text-main);
+            }
+
+            #welcomeModal > p {
+                margin: 0 0 20px 0;
+                font-size: 0.95em;
+                color: var(--text-stats);
+                line-height: 1.5;
+            }
+
+            .modal-section {
+                margin: 20px 0 10px 0;
+                font-size: 0.8em;
+                font-weight: bold;
+                color: var(--accent);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            #welcomeModal ol,
+            #welcomeModal ul {
+                margin: 8px 0;
+                padding-left: 20px;
+                font-size: 0.9em;
+                line-height: 1.6;
+                color: var(--text-main);
+            }
+
+            #welcomeModal li {
+                margin: 4px 0;
+            }
+
+            #welcomeFooter {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 25px;
+                padding-top: 15px;
+                border-top: 1px solid var(--border);
+            }
+
+            #welcomeFooter label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin: 0;
+                font-size: 0.85em;
+                cursor: pointer;
+            }
+
+            #dontShowAgain {
+                cursor: pointer;
+                width: 16px;
+                height: 16px;
+            }
+
+            #welcomeGotIt {
+                padding: 8px 20px;
+                font-weight: bold;
             }
         </style>
     </head>
     <body>
+        <div id="topbar">
+            <span id="topbar-title">STLShaper</span>
+            <button id="loadFileBtn" class="topbar-btn"><i class="bi bi-box-arrow-in-down"></i> Load STL</button>
+            <input type="file" id="fileInput" accept=".stl" style="display: none" />
+            <button id="exportBtn" class="topbar-btn" disabled><i class="bi bi-box-arrow-down"></i> Export STL</button>
+            <button id="exportSettingsBtn" class="topbar-btn" disabled><i class="bi bi-balloon"></i> Export Settings</button>
+            <button id="importSettingsBtn" class="topbar-btn"><i class="bi bi-filetype-json"></i> Import Settings</button>
+            <input type="file" id="importSettingsInput" accept=".json,application/json" style="display: none" />
+            <button id="themeToggle" class="topbar-btn">☀️</button>
+            <a href="https://github.com/ToledoEM/stlshaper" target="_blank" id="githubLink" title="STLShaper on GitHub">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+            </a>
+        </div>
+
         <div id="ui">
             <div id="status">Ready to load STL.</div>
 
@@ -208,8 +444,6 @@
                     ></div>
                 </div>
             </div>
-
-            <input type="file" id="fileInput" accept=".stl" />
 
             <div>
                 <strong>Deformation Type:</strong>
@@ -909,44 +1143,7 @@
                 </button>
             </div>
 
-            <button id="exportBtn" disabled>Export Current STL</button>
-
-            <button id="exportSettingsBtn" disabled>Export Settings</button>
-            <button id="importSettingsBtn">Import Settings</button>
-            <input
-                type="file"
-                id="importSettingsInput"
-                accept=".json,application/json"
-                style="display: none"
-            />
-
             <div id="stats">Stats: N/A</div>
-
-            <div
-                style="
-                    margin-top: 15px;
-                    padding-top: 10px;
-                    border-top: 1px solid #555;
-                    text-align: center;
-                    font-size: 0.8em;
-                    color: #888;
-                "
-            >
-                STLShaper
-                <a
-                    href="https://toledoem.github.io/"
-                    target="_blank"
-                    style="color: #6cf; text-decoration: none"
-                    >ToledoEM</a
-                >, MIT license
-                <br />
-                <a
-                    href="https://toledoem.github.io/stlshaper/documentation.html"
-                    target="_blank"
-                    style="color: #6cf; text-decoration: none"
-                    >Documentation</a
-                >
-            </div>
         </div>
 
         <div id="container"></div>
@@ -956,6 +1153,35 @@
             <button onclick="applyModelScale(0.2)">20%</button>
             <button onclick="applyModelScale(0.5)">50%</button>
             <button onclick="applyModelScale(null)">Auto</button>
+        </div>
+
+        <div id="welcomeOverlay">
+            <div id="welcomeModal">
+                <button id="welcomeClose">✕</button>
+                <h2>Welcome to STLShaper</h2>
+                <p>Transform any STL directly in your browser — no install, no cloud.</p>
+
+                <h3 class="modal-section">QUICK START</h3>
+                <ol>
+                    <li>Load an STL file using the file picker.</li>
+                    <li>Choose a deformation type from the panel.</li>
+                    <li>Adjust parameters and click Apply.</li>
+                    <li>Export your result as STL.</li>
+                </ol>
+
+                <h3 class="modal-section">NEW IN 0.7.0 — Apr 2026</h3>
+                <ul>
+                    <li><strong>Perspective Distortion</strong> — VP-widget-driven projective warp</li>
+                    <li><strong>Spherize</strong> deformation</li>
+                    <li><strong>Auto zoom on load</strong> for better initial view</li>
+                    <li><strong>Documentation site</strong> with full guides</li>
+                </ul>
+
+                <div id="welcomeFooter">
+                    <label><input type="checkbox" id="dontShowAgain" /> Don't show this again</label>
+                    <button id="welcomeGotIt">Got it</button>
+                </div>
+            </div>
         </div>
 
         <script type="module">
@@ -978,6 +1204,58 @@
 
             await loadScript("libraries/FileSaver.min.js");
             await loadScript("main.js");
+        </script>
+
+        <script>
+            // Load STL file from banner button
+            document.getElementById('loadFileBtn').addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+
+            // Initialize theme from localStorage
+            (function() {
+                const saved = localStorage.getItem('stlshaper_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', saved);
+                updateThemeIcon(saved);
+                updateCanvasBackground(saved);
+
+                document.getElementById('themeToggle').addEventListener('click', () => {
+                    const current = document.documentElement.getAttribute('data-theme');
+                    const next = current === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-theme', next);
+                    localStorage.setItem('stlshaper_theme', next);
+                    updateThemeIcon(next);
+                    updateCanvasBackground(next);
+                });
+
+                function updateThemeIcon(theme) {
+                    document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+                }
+
+                function updateCanvasBackground(theme) {
+                    if (window.scene) {
+                        const color = theme === 'light' ? 0xd0d0d0 : 0x333333;
+                        window.scene.background.setHex(color);
+                    }
+                }
+            })();
+
+            // Initialize welcome modal
+            (function() {
+                const overlay = document.getElementById('welcomeOverlay');
+                const welcomed = localStorage.getItem('stlshaper_welcomed');
+                if (!welcomed) overlay.style.display = 'flex';
+
+                document.getElementById('welcomeGotIt').addEventListener('click', () => {
+                    if (document.getElementById('dontShowAgain').checked)
+                        localStorage.setItem('stlshaper_welcomed', 'true');
+                    overlay.style.display = 'none';
+                });
+
+                document.getElementById('welcomeClose').addEventListener('click', () => {
+                    overlay.style.display = 'none';
+                });
+            })();
         </script>
     </body>
 </html>

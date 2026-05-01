@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>STLShaper</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="documentation_files/libs/clipboard/clipboard.min.js"></script>
+<script src="documentation_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="documentation_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="documentation_files/libs/quarto-html/popper.min.js"></script>
+<script src="documentation_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="documentation_files/libs/quarto-html/anchor.min.js"></script>
+<link href="documentation_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="documentation_files/libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="documentation_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="documentation_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="documentation_files/libs/bootstrap/bootstrap-8ffd5f67044e5306d9846f29df41dda5.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<style>html{ scroll-behavior: smooth; }</style>
+<link href="https://fonts.googleapis.com/css?family=Fira+Sans|Merriweather" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+<script data-goatcounter="https://etoledo.goatcounter.com/count" async="" src="//gc.zgo.at/count.js"></script>
+
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">STLShaper</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="img/STL_Deformer_FM.png" class="img-fluid figure-img" width="800"></p>
+<figcaption>A Sine Falcon Millennium</figcaption>
+</figure>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This project is under constant development.</p>
+</div>
+</div>
+<p>This project demonstrates a real-time STL deformation tool using Three.js. It allows you to load an STL file, apply various deformation effects (Noise, Sine Wave, Pixelate, IDW Shepard, Perspective Distortion, plus advanced and topology-altering methods), and visualize the deformed model. It’s a tool for pushing the boundaries of what you expect from a 3D model. The goal is to create subtly unsettling, oddly beautiful, and deliberately weird transformations of STL objects. Think of it as a digital sculpting playground.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Tip
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Transform your 3D models into something unexpected, unsettling, and strangely beautiful. This experimental tool lets you push the boundaries of what’s possible with STL files, creating deliberate distortions and abstract variations of your models. Think of it as a digital sculpture lab where mathematical chaos meets artistic expression.</p>
+</div>
+</div>
+<section id="motivation-creative-exploration" class="level2">
+<h2 class="anchored" data-anchor-id="motivation-creative-exploration">Motivation &amp; Creative Exploration</h2>
+<ul>
+<li>Subversion of Form: This project isn’t about perfect realism. It’s about deliberately distorting the familiar, creating unsettling or intriguing shapes.</li>
+<li>Algorithmic Abstraction: Explore how mathematical functions (noise, sine waves, inverse distance weighting) can be used to transform 3D geometry and change the practicality of 3d shapes.</li>
+<li>Visual Metaphors: Consider how different deformations might represent abstract concepts – chaos, tension, growth, decay.</li>
+</ul>
+</section>
+<section id="features" class="level2">
+<h2 class="anchored" data-anchor-id="features">Features</h2>
+<ul>
+<li><strong>STL Loading</strong>: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).</li>
+<li><strong>Deformation Effects</strong>:
+<ul>
+<li><strong>Noise</strong>: Applies a noise-based deformation, introducing chaotic movement and distortion.</li>
+<li><strong>Sine Wave</strong>: Generates a sinusoidal wave deformation, producing rhythmic, flowing changes – potentially creating mesmerizing, pulsating effects.</li>
+<li><strong>Pixelate</strong>: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.</li>
+<li><strong>IDW Shepard</strong>: Advanced organic deformation using multiple control points distributed throughout the model’s volume via Poisson disk sampling.</li>
+<li><strong>Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch</strong>: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.</li>
+<li><strong>Perspective Distortion</strong>: Projects geometry through a configurable vanishing point. An interactive canvas widget lets you drag a dot to set the distortion direction; the center means no effect. Supports 1-point and 2-point modes (second orange dot adds an independent vanishing point), a plane selector (XY / XZ / YZ) to map widget axes to model space, linear and exponential falloff modes, and touch input on mobile.</li>
+<li><strong>Tessellate / Boundary Disruption / Menger Sponge</strong>: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.</li>
+</ul></li>
+<li><strong>Real-time Deformation</strong>: Updates the deformation in real-time, allowing for interactive experimentation.</li>
+<li><strong>Parameter Controls</strong>: Interactive sliders and checkboxes for adjusting deformation parameters.</li>
+<li><strong>Adaptive Parameter Ranges</strong>: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.</li>
+<li><strong>Visual Feedback</strong>: Displays the deformed model in 3D space with control point visualization for IDW deformation.</li>
+<li><strong>Axis Gizmo</strong>: On-screen X/Y/Z labels for orientation.</li>
+<li><strong>Multi-Axis Selection</strong>: Axis-based deformations (twist, bend, ripple, hyper) can target multiple axes.</li>
+<li><strong>Parallel Processing</strong>: Uses Web Workers for efficient processing of large STL files with thousands of vertices.</li>
+<li><strong>Preprocess Options</strong>: Optional cleanup before deformation. Decimate keeps a percentage of triangles (faster but less detail), and Vertex Merge collapses near-identical vertices within an epsilon (reduces duplicates and can stabilize deformations). Not required for most models, but helpful for very dense STLs or when you need faster iteration.</li>
+<li><strong>Import/Export Settings</strong>: Reuse deformation presets across STLs; exported settings include preprocess parameters.</li>
+<li><strong>Stats HUD</strong>: Displays vertex/triangle counts and deformation time.</li>
+<li><strong>Export</strong>: Exports the deformed model as an STL file – save your weird creations!</li>
+</ul>
+</section>
+<section id="deformation-examples" class="level2">
+<h2 class="anchored" data-anchor-id="deformation-examples">Deformation Examples</h2>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="img/STL_Deformer_Demo.png" class="img-fluid figure-img" width="800"></p>
+<figcaption>Original</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="img/noise_STL_Deformer_Demo.png" class="img-fluid figure-img" width="800"></p>
+<figcaption>Noise Deformation</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="img/sine_STL_Deformer_Demo.png" class="img-fluid figure-img" width="800"></p>
+<figcaption>Sine Wave Deformation</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="img/pixelated_STL_Deformer_Demo.png" class="img-fluid figure-img" width="800"></p>
+<figcaption>Pixelated Deformation</figcaption>
+</figure>
+</div>
+<p><br><em>Pixelated Deformation</em></p>
+</section>
+<section id="idw-shepard-deformation" class="level2">
+<h2 class="anchored" data-anchor-id="idw-shepard-deformation">IDW Shepard Deformation</h2>
+<p>The IDW (Inverse Distance Weighting) Shepard deformation represents a significant advancement in organic 3D manipulation. Unlike traditional single-point deformations, this method uses multiple control points strategically placed throughout the model’s interior volume.</p>
+<section id="key-features" class="level3">
+<h3 class="anchored" data-anchor-id="key-features">Key Features</h3>
+<ul>
+<li><strong>Poisson Disk Sampling</strong>: Evenly distributed control points to prevent clustering</li>
+<li><strong>Volume-Constrained Placement</strong>: Points are guaranteed inside the mesh volume</li>
+<li><strong>Seed-Based Generation</strong>: Deterministic point placement for reproducible results</li>
+<li><strong>Manual Control Points</strong>: Optional manual list of points (single or multi-point)</li>
+<li><strong>Sampling Rays Control</strong>: Adjustable inside-mesh sampling for speed/robustness</li>
+<li><strong>Adaptive Influence</strong>: Inverse distance weighting with customizable power falloff</li>
+<li><strong>Visual Feedback</strong>: Wireframe spheres show control point positions and influence</li>
+<li><strong>Scalable Effects</strong>: Parameter ranges scale to model size for consistent output</li>
+</ul>
+</section>
+<section id="technical-implementation" class="level3">
+<h3 class="anchored" data-anchor-id="technical-implementation">Technical Implementation</h3>
+<ul>
+<li><strong>Multi-Point IDW</strong>: Each vertex is influenced by all control points</li>
+<li><strong>Parallel Processing</strong>: Web Workers handle heavy computation for large meshes</li>
+<li><strong>Real-time Visualization</strong>: Control points scale with model size (5% of largest dimension)</li>
+<li><strong>Robust Volume Detection</strong>: Advanced ray casting ensures points are truly inside the mesh</li>
+</ul>
+</section>
+</section>
+<section id="perspective-distortion" class="level2">
+<h2 class="anchored" data-anchor-id="perspective-distortion">Perspective Distortion</h2>
+<p>Perspective Distortion simulates the geometric projection of a vanishing point applied directly to mesh vertices — not a camera trick, but an actual vertex transformation.</p>
+<section id="key-features-1" class="level3">
+<h3 class="anchored" data-anchor-id="key-features-1">Key Features</h3>
+<ul>
+<li><strong>Interactive canvas widget</strong>: Drag a dot inside a circle; dot position = stretch direction, center = no effect</li>
+<li><strong>1-point mode</strong>: Single vanishing point for classic perspective exaggeration</li>
+<li><strong>2-point mode</strong>: Second orange dot adds an independent vanishing point for complex projections</li>
+<li><strong>Plane selector</strong>: XY / XZ / YZ maps the 2D widget axes to the correct model-space plane</li>
+<li><strong>Falloff modes</strong>: Linear (uniform gradient) or Exponential (strong near vanishing point, soft far away)</li>
+<li><strong>Touch support</strong>: Works on mobile and tablet</li>
+</ul>
+</section>
+</section>
+<section id="requirements" class="level2">
+<h2 class="anchored" data-anchor-id="requirements">Requirements</h2>
+<ul>
+<li>Modern web browser with Web Worker support (Chrome 4+, Firefox 3.5+, Safari 4+, Edge)</li>
+<li>JavaScript ES6+ features supported by your browser</li>
+<li>Three.js r121 (bundled)</li>
+<li>FileSaver.js (included)</li>
+<li>Web Workers (required for parallel processing of large deformations)</li>
+</ul>
+</section>
+<section id="run-options" class="level2">
+<h2 class="anchored" data-anchor-id="run-options">Run Options</h2>
+<ol type="1">
+<li><strong>Run locally:</strong> Clone the repository and open <code>index.html</code> in a modern browser.</li>
+<li><strong>Run online:</strong> Open the hosted version at <a href="https://toledoem.github.io/stlshaper/">https://toledoem.github.io/stlshaper/</a>.</li>
+</ol>
+</section>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<ol type="1">
+<li>Place all files (<code>index.html</code>, <code>main.js</code>, libraries) in a directory.</li>
+<li>Open <code>index.html</code> in your web browser.</li>
+</ol>
+</section>
+<section id="usage" class="level2">
+<h2 class="anchored" data-anchor-id="usage">Usage</h2>
+<ol type="1">
+<li><strong>Load STL:</strong> Click the “File Input” button to select an STL file.</li>
+<li><strong>Deformation Type:</strong> Choose the deformation type from the radio buttons (Noise, Sine Wave, Pixelate, IDW Shepard, etc.).</li>
+<li><strong>Adjust Parameters:</strong> Use the sliders and inputs to control the deformation parameters. IDW parameters adapt automatically to model size.</li>
+<li><strong>Generate Deformation:</strong> Click the “Generate Deformation” button.</li>
+<li><strong>Visualize:</strong> The deformed model will be displayed in the 3D view.</li>
+<li><strong>Export (Optional):</strong> Click the “Export Current STL” button to save the deformed model as an STL file.</li>
+</ol>
+</section>
+<section id="controls" class="level2">
+<h2 class="anchored" data-anchor-id="controls">Controls</h2>
+<ul>
+<li><strong>File Input:</strong> Select an STL file.</li>
+<li><strong>Radio Buttons:</strong> Choose the deformation effect.</li>
+<li><strong>Sliders:</strong> Adjust the parameters of the chosen effect.</li>
+</ul>
+<section id="noise-controls" class="level3">
+<h3 class="anchored" data-anchor-id="noise-controls">Noise Controls</h3>
+<ul>
+<li><strong>Intensity:</strong> Controls the strength of the noise deformation (0.1 - 5.0)</li>
+<li><strong>Scale:</strong> Controls the frequency/size of noise features (0.005 - 0.5)</li>
+<li><strong>Axis:</strong> Choose which axes to apply noise to (All, X, Y, Z, or combinations)</li>
+</ul>
+</section>
+<section id="sine-wave-controls" class="level3">
+<h3 class="anchored" data-anchor-id="sine-wave-controls">Sine Wave Controls</h3>
+<ul>
+<li><strong>Amplitude:</strong> Controls the height of the sine waves (1 - 100)</li>
+<li><strong>Frequency:</strong> Controls how many waves fit in the model (0.01 - 0.2)</li>
+<li><strong>Driver Axis:</strong> Which axis provides the input to the sine function (X, Y, Z)</li>
+<li><strong>Displacement Axis:</strong> Which axes the sine wave displaces (X, Y, Z, or combinations)</li>
+</ul>
+</section>
+<section id="pixelate-controls" class="level3">
+<h3 class="anchored" data-anchor-id="pixelate-controls">Pixelate Controls</h3>
+<ul>
+<li><strong>Voxel Size:</strong> Size of the pixelation grid (0.5 - 50)</li>
+<li><strong>Axis Lock:</strong> Which axes to pixelate (All, X, Y, Z, or combinations)</li>
+</ul>
+</section>
+<section id="idw-shepard-controls" class="level3">
+<h3 class="anchored" data-anchor-id="idw-shepard-controls">IDW Shepard Controls</h3>
+<ul>
+<li><strong>Number of Points:</strong> How many control points to generate (3 - 50)</li>
+<li><strong>Seed:</strong> Numeric seed for reproducible control point placement (0 - 10000)</li>
+<li><strong>Weight:</strong> Strength of attraction/repulsion at control points (adaptive range by model size)</li>
+<li><strong>Power:</strong> Influence falloff with distance (0.5 - 6.0)</li>
+<li><strong>Global Scale:</strong> Overall deformation scaling (adaptive range by model size)</li>
+<li><strong>Generate Deformation:</strong> Apply the deformation.</li>
+<li><strong>Export Current STL:</strong> Export the deformed model.</li>
+</ul>
+</section>
+<section id="perspective-distortion-controls" class="level3">
+<h3 class="anchored" data-anchor-id="perspective-distortion-controls">Perspective Distortion Controls</h3>
+<ul>
+<li><strong>Canvas widget:</strong> Drag dot to set vanishing point direction and magnitude</li>
+<li><strong>Mode:</strong> 1-point or 2-point</li>
+<li><strong>Plane:</strong> XY / XZ / YZ</li>
+<li><strong>Strength:</strong> Overall distortion magnitude</li>
+<li><strong>Falloff:</strong> Linear or Exponential</li>
+</ul>
+</section>
+</section>
+<section id="code-structure" class="level2">
+<h2 class="anchored" data-anchor-id="code-structure">Code Structure</h2>
+<ul>
+<li><strong><code>index.html</code>:</strong> The main HTML file that sets up the Three.js scene, UI elements, and event listeners.</li>
+<li><strong><code>main.js</code>:</strong> Core logic for loading the STL, applying deformation, rendering, and UI. Includes Poisson disk sampling, volume detection, and adaptive parameter scaling.</li>
+<li><strong><code>worker.js</code>:</strong> Web Worker for parallel processing of vertex deformations (especially IDW).</li>
+<li><strong><code>libraries/</code>:</strong> Three.js, FileSaver.js, and other required libraries.</li>
+</ul>
+</section>
+<section id="important-notes" class="level2">
+<h2 class="anchored" data-anchor-id="important-notes">Important Notes</h2>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Warning</span>Performance Considerations
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>The performance depends on the complexity of the STL model and chosen deformation algorithm</li>
+<li>The rendering process can be slow with complex models</li>
+<li>Web Workers improve responsiveness for large meshes and multi-point IDW</li>
+</ul>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Post-processing Required
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>After deformation, process the model in Meshlab using these filters:</p>
+<ol type="1">
+<li>Filters -&gt; Cleaning and Repairing</li>
+<li>Remove Zero Area Faces (twice)</li>
+<li>Repair Non-manifold Edges (split)</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This is a basic demonstration that can be extended with more advanced features.</p>
+</div>
+</div>
+</section>
+<section id="notes" class="level2">
+<h2 class="anchored" data-anchor-id="notes">Notes</h2>
+<ul>
+<li>IDW Shepard deformation works best with solid, manifold meshes. Complex or thin-walled models may produce unexpected results.</li>
+<li>Some STLs may require normal regeneration to avoid black/incorrect shading (handled in recent builds).</li>
+</ul>
+</section>
+<section id="changelog" class="level2">
+<h2 class="anchored" data-anchor-id="changelog">Changelog</h2>
+<section id="section" class="level3">
+<h3 class="anchored" data-anchor-id="section">0.7.0 (2026-04-21)</h3>
+<ul>
+<li>Added Perspective Distortion deformation with interactive vanishing-point picker widget</li>
+<li>Circle canvas widget with draggable dot to set distortion direction; center = no effect</li>
+<li>1-point and 2-point mode: second orange dot adds independent vanishing point</li>
+<li>Plane selector (XY / XZ / YZ) maps widget axes to model space</li>
+<li>Linear and exponential falloff modes</li>
+<li>Touch support for the canvas widget</li>
+</ul>
+</section>
+<section id="section-1" class="level3">
+<h3 class="anchored" data-anchor-id="section-1">0.6.0 (2026-02-10)</h3>
+<ul>
+<li>Added importable deformation settings to reuse presets across STLs</li>
+<li>Added on-screen axis gizmo with X/Y/Z labels</li>
+<li>Added multi-axis selection for axis-based deformations (twist, bend, ripple, hyper)</li>
+<li>Improved Menger sponge, tessellation range, settings export, and UI/camera performance</li>
+<li>Fixed shading issues by ensuring valid vertex normals, plus assorted robustness fixes</li>
+</ul>
+</section>
+<section id="section-2" class="level3">
+<h3 class="anchored" data-anchor-id="section-2">0.5.0 (2026-02-08)</h3>
+<ul>
+<li>Updated GUI and camera behavior</li>
+<li>Fixed P0, P1, P3, and P4 issue sets</li>
+</ul>
+</section>
+<section id="section-3" class="level3">
+<h3 class="anchored" data-anchor-id="section-3">0.4.0 (2025-10-28)</h3>
+<ul>
+<li>Added settings workflow groundwork and Web Worker processing</li>
+<li>General refinements and cleanup</li>
+</ul>
+</section>
+<section id="section-4" class="level3">
+<h3 class="anchored" data-anchor-id="section-4">0.3.0 (2025-10-27)</h3>
+<ul>
+<li>Initial autoloader workflow</li>
+</ul>
+</section>
+<section id="section-5" class="level3">
+<h3 class="anchored" data-anchor-id="section-5">0.2.0 (2025-10-06)</h3>
+<ul>
+<li>Bug fixes and iterative improvements</li>
+</ul>
+</section>
+<section id="section-6" class="level3">
+<h3 class="anchored" data-anchor-id="section-6">0.1.0 (2025-10-04)</h3>
+<ul>
+<li>Initial project scaffold and documentation</li>
+</ul>
+</section>
+</section>
+<section id="contributing" class="level2">
+<h2 class="anchored" data-anchor-id="contributing">Contributing</h2>
+<p>Feel free to contribute to this project! You can:</p>
+<ul>
+<li>Submit bug reports</li>
+<li>Suggest feature requests</li>
+<li>Create pull requests</li>
+</ul>
+</section>
+<section id="license-attributions" class="level2">
+<h2 class="anchored" data-anchor-id="license-attributions">License &amp; Attributions</h2>
+<p><strong>STLShaper</strong> is released under the <a href="https://github.com/ToledoEM/stlshaper/blob/main/LICENSE">MIT License</a>.</p>
+<section id="third-party-libraries-resources" class="level3">
+<h3 class="anchored" data-anchor-id="third-party-libraries-resources">Third-Party Libraries &amp; Resources</h3>
+<ul>
+<li><strong>Three.js</strong> (v0.121.1) – <a href="https://github.com/mrdoob/three.js/blob/master/LICENSE">MIT License</a>
+<ul>
+<li>3D graphics library for WebGL rendering</li>
+</ul></li>
+<li><strong>Bootstrap Icons</strong> – <a href="https://github.com/twbs/icons/blob/main/LICENSE.md">MIT License</a>
+<ul>
+<li>Icon library for UI elements (file, download, upload, balloon icons)</li>
+</ul></li>
+<li><strong>FileSaver.js</strong> – <a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>
+<ul>
+<li>Client-side file download functionality for STL exports</li>
+</ul></li>
+</ul>
+</section>
+<section id="sample-stl-models" class="level3">
+<h3 class="anchored" data-anchor-id="sample-stl-models">Sample STL Models</h3>
+<p>Sample 3D models used for testing and demonstration are sourced from:</p>
+<ul>
+<li><strong>NIH 3D Print Exchange</strong> – <a href="https://3dprint.nih.gov/">Public Domain</a>
+<ul>
+<li>Freely available biomedical 3D models for non-commercial use and research</li>
+</ul></li>
+</ul>
+</section>
+<section id="attribution" class="level3">
+<h3 class="anchored" data-anchor-id="attribution">Attribution</h3>
+<p>Built by <strong>Enrique Toledo</strong> (<a href="https://toledoem.github.io/"><span class="citation" data-cites="ToledoEM">@ToledoEM</span></a>)</p>
+<hr>
+<p><strong>Disclaimer:</strong> This tool is provided as-is for experimental and educational purposes. The deformations applied are artistic and mathematical in nature and may not preserve properties required for 3D printing or clinical use. Always validate exported models for your specific use case.</p>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+            // default icon
+            link.classList.add("external");
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<script src="documentation_files/libs/quarto-html/zenscroll-min.js"></script>
+</body></html>
