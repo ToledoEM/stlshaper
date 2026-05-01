@@ -1213,11 +1213,17 @@
             });
 
             // Initialize theme from localStorage
+            window.updateCanvasBackground = function(theme) {
+                if (window.scene && window.scene.background) {
+                    const color = theme === 'light' ? 0xd0d0d0 : 0x333333;
+                    window.scene.background.setHex(color);
+                }
+            };
+
             (function() {
                 const saved = localStorage.getItem('stlshaper_theme') || 'dark';
                 document.documentElement.setAttribute('data-theme', saved);
                 updateThemeIcon(saved);
-                updateCanvasBackground(saved);
 
                 document.getElementById('themeToggle').addEventListener('click', () => {
                     const current = document.documentElement.getAttribute('data-theme');
@@ -1225,18 +1231,11 @@
                     document.documentElement.setAttribute('data-theme', next);
                     localStorage.setItem('stlshaper_theme', next);
                     updateThemeIcon(next);
-                    updateCanvasBackground(next);
+                    window.updateCanvasBackground(next);
                 });
 
                 function updateThemeIcon(theme) {
                     document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
-                }
-
-                function updateCanvasBackground(theme) {
-                    if (window.scene) {
-                        const color = theme === 'light' ? 0xd0d0d0 : 0x333333;
-                        window.scene.background.setHex(color);
-                    }
                 }
             })();
 
