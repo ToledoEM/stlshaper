@@ -411,6 +411,7 @@
             <button id="exportSettingsBtn" class="topbar-btn" disabled><i class="bi bi-balloon"></i> Export Settings</button>
             <button id="importSettingsBtn" class="topbar-btn"><i class="bi bi-filetype-json"></i> Import Settings</button>
             <input type="file" id="importSettingsInput" accept=".json,application/json" style="display: none" />
+            <button id="docsBtn" class="topbar-btn"><i class="bi bi-file-richtext"></i> Documentation</button>
             <button id="themeToggle" class="topbar-btn">☀️</button>
             <a href="https://github.com/ToledoEM/stlshaper" target="_blank" id="githubLink" title="STLShaper on GitHub">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1210,6 +1211,11 @@
             // Load STL file from banner button
             document.getElementById('loadFileBtn').addEventListener('click', () => {
                 document.getElementById('fileInput').click();
+            });
+
+            // Documentation button
+            document.getElementById('docsBtn').addEventListener('click', () => {
+                window.open('https://toledoem.github.io/stlshaper/documentation.html', '_blank');
             });
 
             // Initialize theme from localStorage
