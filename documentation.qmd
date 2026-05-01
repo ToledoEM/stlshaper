@@ -211,6 +211,13 @@ After deformation, you may need to repair the mesh in Meshlab. Use these filters
 
 ## Changelog
 
+### 0.8.0 (2026-05-01)
+
+-   Exposed global scene, camera, and renderer for browser console access
+-   Improved UI/GUI with enhanced styling and layout refinements
+-   Canvas widget layout and interaction improvements
+-   Documentation rendering and organization
+
 ### 0.7.0 (2026-04-21)
 
 -   Added Perspective Distortion deformation with interactive vanishing-point picker widget
