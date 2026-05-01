@@ -1214,9 +1214,9 @@
 
             // Initialize theme from localStorage
             window.updateCanvasBackground = function(theme) {
-                if (window.scene && window.scene.background) {
+                if (window.scene) {
                     const color = theme === 'light' ? 0xd0d0d0 : 0x333333;
-                    window.scene.background.setHex(color);
+                    window.scene.background = new window.THREE.Color(color);
                 }
             };
 
