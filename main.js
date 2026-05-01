@@ -2171,9 +2171,9 @@ function exportSTL() {
     const mesh = new THREE.Mesh(activeModel);
     scene.add(mesh);
     const exporter = createSTLExporter();
-    const stlString = exporter.parse(scene, { binary: false });
+    const stlData = exporter.parse(scene, { binary: true });
 
-    const blob = new Blob([stlString], { type: "text/plain" });
+    const blob = new Blob([stlData], { type: "application/octet-stream" });
     saveAs(blob, `${currentModelKey}_deformed.stl`);
 
     statusDisplay.update(
