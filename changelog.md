@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-05-01
+### Added
+- Global scene, camera, and renderer exposure for browser console access.
+
+### Changed
+- Improved UI/GUI with enhanced styling and layout refinements.
+- Canvas widget layout and interaction improvements.
+- Documentation rendering and organization.
+
 ## [0.7.0] - 2026-04-21
 ### Added
 - Perspective Distortion deformation with interactive vanishing-point picker widget.
