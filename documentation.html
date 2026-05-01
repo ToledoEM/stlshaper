@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>STLShaper</title>
+<title>STLShaper by ToledoEM</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -54,7 +54,7 @@ ul.task-list li input[type="checkbox"] {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">STLShaper</h1>
+<h1 class="title">STLShaper by ToledoEM</h1>
 </div>
 
 
@@ -90,7 +90,7 @@ Note
 <p>This project is under constant development.</p>
 </div>
 </div>
-<p>This project demonstrates a real-time STL deformation tool using Three.js. It allows you to load an STL file, apply various deformation effects (Noise, Sine Wave, Pixelate, IDW Shepard, Perspective Distortion, plus advanced and topology-altering methods), and visualize the deformed model. It’s a tool for pushing the boundaries of what you expect from a 3D model. The goal is to create subtly unsettling, oddly beautiful, and deliberately weird transformations of STL objects. Think of it as a digital sculpting playground.</p>
+<p>STLShaper loads STL files and applies mathematical deformations in real-time: noise, sine waves, pixelation, inverse distance weighting, and topology-altering methods like tessellation and Menger sponges. You adjust parameters and export the result. The point is to make your models deliberately weird—unsettling, beautiful, broken.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -101,14 +101,14 @@ Tip
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Transform your 3D models into something unexpected, unsettling, and strangely beautiful. This experimental tool lets you push the boundaries of what’s possible with STL files, creating deliberate distortions and abstract variations of your models. Think of it as a digital sculpture lab where mathematical chaos meets artistic expression.</p>
+<p>Use deformation to explore how a single object changes under different mathematical rules. What does your model look like if you apply noise? Sine waves? A Menger sponge carved through it? Save the weird ones.</p>
 </div>
 </div>
 <section id="motivation-creative-exploration" class="level2">
 <h2 class="anchored" data-anchor-id="motivation-creative-exploration">Motivation &amp; Creative Exploration</h2>
 <ul>
 <li>Subversion of Form: This project isn’t about perfect realism. It’s about deliberately distorting the familiar, creating unsettling or intriguing shapes.</li>
-<li>Algorithmic Abstraction: Explore how mathematical functions (noise, sine waves, inverse distance weighting) can be used to transform 3D geometry and change the practicality of 3d shapes.</li>
+<li>Algorithmic Abstraction: Noise, sine waves, and inverse distance weighting deform geometry in predictable and chaotic ways. Noise breaks regularity. Sine waves ripple across surfaces. IDW bends space around control points.</li>
 <li>Visual Metaphors: Consider how different deformations might represent abstract concepts – chaos, tension, growth, decay.</li>
 </ul>
 </section>
@@ -119,9 +119,9 @@ Tip
 <li><strong>Deformation Effects</strong>:
 <ul>
 <li><strong>Noise</strong>: Applies a noise-based deformation, introducing chaotic movement and distortion.</li>
-<li><strong>Sine Wave</strong>: Generates a sinusoidal wave deformation, producing rhythmic, flowing changes – potentially creating mesmerizing, pulsating effects.</li>
+<li><strong>Sine Wave</strong>: Displaces vertices along a sine curve, creating rhythmic ripples across the model.</li>
 <li><strong>Pixelate</strong>: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.</li>
-<li><strong>IDW Shepard</strong>: Advanced organic deformation using multiple control points distributed throughout the model’s volume via Poisson disk sampling.</li>
+<li><strong>IDW Shepard</strong>: Multiple control points scattered through the model’s interior. Each vertex moves based on distance to those points—closer points pull harder.</li>
 <li><strong>Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch</strong>: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.</li>
 <li><strong>Perspective Distortion</strong>: Projects geometry through a configurable vanishing point. An interactive canvas widget lets you drag a dot to set the distortion direction; the center means no effect. Supports 1-point and 2-point modes (second orange dot adds an independent vanishing point), a plane selector (XY / XZ / YZ) to map widget axes to model space, linear and exponential falloff modes, and touch input on mobile.</li>
 <li><strong>Tessellate / Boundary Disruption / Menger Sponge</strong>: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.</li>
@@ -169,7 +169,7 @@ Tip
 </section>
 <section id="idw-shepard-deformation" class="level2">
 <h2 class="anchored" data-anchor-id="idw-shepard-deformation">IDW Shepard Deformation</h2>
-<p>The IDW (Inverse Distance Weighting) Shepard deformation represents a significant advancement in organic 3D manipulation. Unlike traditional single-point deformations, this method uses multiple control points strategically placed throughout the model’s interior volume.</p>
+<p>Control points pull vertices based on distance. Closer points pull harder. The result: smooth, organic bending without the grid-like feel of axis-based or noise-driven methods.</p>
 <section id="key-features" class="level3">
 <h3 class="anchored" data-anchor-id="key-features">Key Features</h3>
 <ul>
@@ -335,25 +335,12 @@ Tip
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>After deformation, process the model in Meshlab using these filters:</p>
+<p>After deformation, you may need to repair the mesh in Meshlab. Use these filters:</p>
 <ol type="1">
 <li>Filters -&gt; Cleaning and Repairing</li>
 <li>Remove Zero Area Faces (twice)</li>
 <li>Repair Non-manifold Edges (split)</li>
 </ol>
-</div>
-</div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Note
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>This is a basic demonstration that can be extended with more advanced features.</p>
 </div>
 </div>
 </section>
@@ -439,9 +426,9 @@ Note
 <ul>
 <li>3D graphics library for WebGL rendering</li>
 </ul></li>
-<li><strong>Bootstrap Icons</strong> – <a href="https://github.com/twbs/icons/blob/main/LICENSE.md">MIT License</a>
+<li><strong>Bootstrap Icons</strong> – <a href="https://github.com/twbs/icons/blob/HEAD/LICENSE">MIT License</a>
 <ul>
-<li>Icon library for UI elements (file, download, upload, balloon icons)</li>
+<li>Icon library for UI elements (box-arrow-down, box-arrow-in-down, filetype-json, balloon icons)</li>
 </ul></li>
 <li><strong>FileSaver.js</strong> – <a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>
 <ul>
@@ -463,7 +450,7 @@ Note
 <h3 class="anchored" data-anchor-id="attribution">Attribution</h3>
 <p>Built by <strong>Enrique Toledo</strong> (<a href="https://toledoem.github.io/"><span class="citation" data-cites="ToledoEM">@ToledoEM</span></a>)</p>
 <hr>
-<p><strong>Disclaimer:</strong> This tool is provided as-is for experimental and educational purposes. The deformations applied are artistic and mathematical in nature and may not preserve properties required for 3D printing or clinical use. Always validate exported models for your specific use case.</p>
+<p><strong>Disclaimer:</strong> This tool is provided as-is for experimental and educational purposes.</p>
 </section>
 </section>
 
