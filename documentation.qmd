@@ -3,6 +3,20 @@ title: "STLShaper"
 extensions:
   iconify:
     style: "color: #b22222;"
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: false
+    number-sections: false
+    smooth-scroll: true
+    link-external-icon: true
+    link-external-newwindow: true
+    include-in-header:
+      text: |
+        <link href="https://fonts.googleapis.com/css?family=Fira+Sans|Merriweather" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css" />
+        <script data-goatcounter="https://etoledo.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 ---
 
 ![A Sine Falcon Millennium](img/STL_Deformer_FM.png){fig-align="center" width="800"}
