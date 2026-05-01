@@ -1,5 +1,5 @@
 ---
-title: "STLShaper"
+title: "STLShaper by ToledoEM"
 extensions:
   iconify:
     style: "color: #b22222;"
