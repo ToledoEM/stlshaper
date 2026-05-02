@@ -1,0 +1,107 @@
+/* ── Navbar ──────────────────────────────────────────────────── */
+.navbar {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.navbar-brand {
+  color: #000 !important;
+  font-weight: 600;
+}
+
+.navbar-title {
+  color: #000 !important;
+}
+
+.navbar-nav .nav-link {
+  color: #333 !important;
+}
+
+/* ── Screenshots ─────────────────────────────────────────────── */
+.screenshot {
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  max-width: 100%;
+  margin: 0.75rem 0;
+}
+
+/* ── Before/After comparison ─────────────────────────────────── */
+.comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.comparison h4 {
+  color: #0b5394;
+  font-weight: 600;
+  margin-top: 0;
+}
+
+@media (max-width: 768px) {
+  .comparison {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Table polish ────────────────────────────────────────────── */
+table {
+  font-size: 0.92rem;
+}
+
+/* ── Navbar logo sizing ──────────────────────────────────────── */
+.navbar-brand img {
+  height: 28px;
+  width: 28px;
+  border-radius: 50%;
+}
+
+/* ── Sidebar TOC ─────────────────────────────────────────────── */
+#quarto-sidebar {
+  font-size: 0.88rem;
+}
+
+/* ── Definition list (troubleshooting) ──────────────────────── */
+dl dt {
+  font-weight: 600;
+  color: #0b5394;
+  margin-top: 0.75rem;
+}
+
+dl dd {
+  margin-left: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ── Code blocks ─────────────────────────────────────────────── */
+pre {
+  background: #f8f9fa;
+  border-left: 4px solid #0b5394;
+  padding: 0.75rem 1rem;
+  border-radius: 0.4rem;
+}
+
+/* ── Callout boxes ───────────────────────────────────────────── */
+.callout {
+  border-left: 4px solid #0b5394;
+  padding: 1rem;
+  margin: 1rem 0;
+  background: #f8f9fa;
+  border-radius: 0.4rem;
+}
+
+/* ── Grid cards ──────────────────────────────────────────────── */
+.grid .g-col-6 {
+  background: #f8f9fa;
+  border-left: 4px solid #0b5394;
+  border-radius: 0.4rem;
+  padding: 1rem 1.25rem;
+}
+
+.grid .g-col-6 h3 {
+  font-size: 1rem;
+  margin-top: 0;
+  color: #2c3e50;
+}
