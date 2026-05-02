@@ -1,0 +1,14 @@
+{
+  "originalFileName": "millennium-falcon-1500_prusaslicer.stl",
+  "deformationType": "ripple",
+  "settings": {
+    "amplitude": 5.5,
+    "frequency": 0.25,
+    "axis": "y"
+  },
+  "preprocess": {
+    "decimate": 100,
+    "mergeEpsilon": 0
+  },
+  "exportDateTime": "2026-05-01T22:09:09.543Z"
+}
