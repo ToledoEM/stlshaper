@@ -1,0 +1,13 @@
+{
+  "originalFileName": "Rounded Rectangle.stl",
+  "deformationType": "bend",
+  "settings": {
+    "strength": 0.15,
+    "axis": "xy"
+  },
+  "preprocess": {
+    "decimate": 100,
+    "mergeEpsilon": 0
+  },
+  "exportDateTime": "2026-05-01T22:04:28.346Z"
+}
