@@ -3,7 +3,6 @@
 
 # Local development
 *.local
-FEEDBACK.md
 
 # Debug logs
 *.log
@@ -21,3 +20,4 @@ build/
 /.quarto/
 **/*.quarto_ipynb
 documentation_files/
+_quarto.yaml

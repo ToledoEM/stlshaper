@@ -19,7 +19,7 @@ format:
         <script data-goatcounter="https://etoledo.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 ---
 
-![A Sine Falcon Millennium](img/STL_Deformer_FM.png){fig-align="center" width="800"}
+![A Sine Falcon Millennium](img/MF_ripple_deformed.png){fig-align="center" width="800"}
 
 ::: callout-note
 This project is under constant development.
@@ -62,15 +62,17 @@ Use deformation to explore how a single object changes under different mathemati
 
 ## Deformation Examples
 
-![Original](img/STL_Deformer_Demo.png){fig-align="center" width="800"}
+![Original](img/Original_benchy.png){fig-align="center" width="800"}
 
-![Noise Deformation](img/noise_STL_Deformer_Demo.png){fig-align="center" width="800"}
+![Sine Wave Deformation](img/sine_deformed.png){fig-align="center" width="800"}
 
-![Sine Wave Deformation](img/sine_STL_Deformer_Demo.png){fig-align="center" width="800"}
+![Pixelated Deformation](img/pixel_deformed.png){fig-align="center" width="800"}
 
-![Pixelated Deformation](img/pixelated_STL_Deformer_Demo.png){fig-align="center" width="800"}
+![Perspective Distortion](img/persp_deformed.png){fig-align="center" width="800"}
 
-<br><em>Pixelated Deformation</em>
+![Ripple Deformation](img/ripple_deformed.png){fig-align="center" width="800"}
+
+![Spherize Deformation](img/spherize_deformed.png){fig-align="center" width="800"}
 
 ## IDW Shepard Deformation
 
@@ -290,6 +292,8 @@ Sample 3D models used for testing and demonstration are sourced from:
 ### Attribution
 
 Built by **Enrique Toledo** ([@ToledoEM](https://toledoem.github.io/))
+
+[On Printables](https://www.printables.com/model/1707389-stl-shaper)
 
 ---
 

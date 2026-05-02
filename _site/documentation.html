@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>STLShaper by ToledoEM</title>
+<title>STLShaper by ToledoEM – STLShaper - 3D Mesh Deformation</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -26,30 +26,105 @@ ul.task-list li input[type="checkbox"] {
 </style>
 
 
-<script src="documentation_files/libs/clipboard/clipboard.min.js"></script>
-<script src="documentation_files/libs/quarto-html/quarto.js" type="module"></script>
-<script src="documentation_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="documentation_files/libs/quarto-html/popper.min.js"></script>
-<script src="documentation_files/libs/quarto-html/tippy.umd.min.js"></script>
-<script src="documentation_files/libs/quarto-html/anchor.min.js"></script>
-<link href="documentation_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="documentation_files/libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="documentation_files/libs/bootstrap/bootstrap.min.js"></script>
-<link href="documentation_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="documentation_files/libs/bootstrap/bootstrap-8ffd5f67044e5306d9846f29df41dda5.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-f0713a80c085f0d9a0c3bd6e7a074e09.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
 <style>html{ scroll-behavior: smooth; }</style>
 <link href="https://fonts.googleapis.com/css?family=Fira+Sans|Merriweather" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
 <script data-goatcounter="https://etoledo.goatcounter.com/count" async="" src="//gc.zgo.at/count.js"></script>
 
 
+<link rel="stylesheet" href="documentation-styles.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 
-<body class="fullcontent quarto-light">
+<body class="floating nav-fixed fullcontent quarto-light">
 
-<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
-
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">STLShaper</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link active" href="./documentation.html" aria-current="page"> 
+<span class="menu-text">Documentation</span></a>
+  </li>  
+</ul>
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/ToledoEM/stlShaper"> <i class="bi bi-github" role="img" aria-label="GitHub repository">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    
+<!-- main -->
 <main class="content" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
@@ -73,7 +148,7 @@ ul.task-list li input[type="checkbox"] {
 
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="img/STL_Deformer_FM.png" class="img-fluid figure-img" width="800"></p>
+<p><img src="img/MF_ripple_deformed.png" class="img-fluid figure-img" width="800"></p>
 <figcaption>A Sine Falcon Millennium</figcaption>
 </figure>
 </div>
@@ -143,29 +218,40 @@ Tip
 <h2 class="anchored" data-anchor-id="deformation-examples">Deformation Examples</h2>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="img/STL_Deformer_Demo.png" class="img-fluid figure-img" width="800"></p>
+<p><img src="img/Original_benchy.png" class="img-fluid figure-img" width="800"></p>
 <figcaption>Original</figcaption>
 </figure>
 </div>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="img/noise_STL_Deformer_Demo.png" class="img-fluid figure-img" width="800"></p>
-<figcaption>Noise Deformation</figcaption>
-</figure>
-</div>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="img/sine_STL_Deformer_Demo.png" class="img-fluid figure-img" width="800"></p>
+<p><img src="img/sine_deformed.png" class="img-fluid figure-img" width="800"></p>
 <figcaption>Sine Wave Deformation</figcaption>
 </figure>
 </div>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="img/pixelated_STL_Deformer_Demo.png" class="img-fluid figure-img" width="800"></p>
+<p><img src="img/pixel_deformed.png" class="img-fluid figure-img" width="800"></p>
 <figcaption>Pixelated Deformation</figcaption>
 </figure>
 </div>
-<p><br><em>Pixelated Deformation</em></p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="img/persp_deformed.png" class="img-fluid figure-img" width="800"></p>
+<figcaption>Perspective Distortion</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="img/ripple_deformed.png" class="img-fluid figure-img" width="800"></p>
+<figcaption>Ripple Deformation</figcaption>
+</figure>
+</div>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="img/spherize_deformed.png" class="img-fluid figure-img" width="800"></p>
+<figcaption>Spherize Deformation</figcaption>
+</figure>
+</div>
 </section>
 <section id="idw-shepard-deformation" class="level2">
 <h2 class="anchored" data-anchor-id="idw-shepard-deformation">IDW Shepard Deformation</h2>
@@ -458,13 +544,15 @@ Tip
 <section id="attribution" class="level3">
 <h3 class="anchored" data-anchor-id="attribution">Attribution</h3>
 <p>Built by <strong>Enrique Toledo</strong> (<a href="https://toledoem.github.io/"><span class="citation" data-cites="ToledoEM">@ToledoEM</span></a>)</p>
+<p><a href="https://www.printables.com/model/1707389-stl-shaper">On Printables</a></p>
 <hr>
 <p><strong>Disclaimer:</strong> This tool is provided as-is for experimental and educational purposes.</p>
+
+
 </section>
 </section>
 
-</main>
-<!-- /main column -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";
@@ -873,9 +961,22 @@ Tip
   });
   </script>
 </div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>MIT License · <a href="https://github.com/ToledoEM">ToledoEM</a></p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+<p>Built with <a href="https://quarto.org">Quarto</a></p>
+</div>
+  </div>
+</footer>
 
 
 
 
-<script src="documentation_files/libs/quarto-html/zenscroll-min.js"></script>
+<script src="site_libs/quarto-html/zenscroll-min.js"></script>
 </body></html>

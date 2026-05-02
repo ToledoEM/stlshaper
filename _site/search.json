@@ -1,0 +1,121 @@
+[
+  {
+    "objectID": "documentation.html",
+    "href": "documentation.html",
+    "title": "STLShaper by ToledoEM",
+    "section": "",
+    "text": "A Sine Falcon Millennium\nSTLShaper loads STL files and applies mathematical deformations in real-time: noise, sine waves, pixelation, inverse distance weighting, and topology-altering methods like tessellation and Menger sponges. You adjust parameters and export the result. The point is to make your models deliberately weird—unsettling, beautiful, broken."
+  },
+  {
+    "objectID": "documentation.html#motivation-creative-exploration",
+    "href": "documentation.html#motivation-creative-exploration",
+    "title": "STLShaper by ToledoEM",
+    "section": "Motivation & Creative Exploration",
+    "text": "Motivation & Creative Exploration\n\nSubversion of Form: This project isn’t about perfect realism. It’s about deliberately distorting the familiar, creating unsettling or intriguing shapes.\nAlgorithmic Abstraction: Noise, sine waves, and inverse distance weighting deform geometry in predictable and chaotic ways. Noise breaks regularity. Sine waves ripple across surfaces. IDW bends space around control points.\nVisual Metaphors: Consider how different deformations might represent abstract concepts – chaos, tension, growth, decay."
+  },
+  {
+    "objectID": "documentation.html#features",
+    "href": "documentation.html#features",
+    "title": "STLShaper by ToledoEM",
+    "section": "Features",
+    "text": "Features\n\nSTL Loading: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).\nDeformation Effects:\n\nNoise: Applies a noise-based deformation, introducing chaotic movement and distortion.\nSine Wave: Displaces vertices along a sine curve, creating rhythmic ripples across the model.\nPixelate: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.\nIDW Shepard: Multiple control points scattered through the model’s interior. Each vertex moves based on distance to those points—closer points pull harder.\nInflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.\nPerspective Distortion: Projects geometry through a configurable vanishing point. An interactive canvas widget lets you drag a dot to set the distortion direction; the center means no effect. Supports 1-point and 2-point modes (second orange dot adds an independent vanishing point), a plane selector (XY / XZ / YZ) to map widget axes to model space, linear and exponential falloff modes, and touch input on mobile.\nTessellate / Boundary Disruption / Menger Sponge: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.\n\nReal-time Deformation: Updates the deformation in real-time, allowing for interactive experimentation.\nParameter Controls: Interactive sliders and checkboxes for adjusting deformation parameters.\nAdaptive Parameter Ranges: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.\nVisual Feedback: Displays the deformed model in 3D space with control point visualization for IDW deformation.\nAxis Gizmo: On-screen X/Y/Z labels for orientation.\nMulti-Axis Selection: Axis-based deformations (twist, bend, ripple, hyper) can target multiple axes.\nParallel Processing: Uses Web Workers for efficient processing of large STL files with thousands of vertices.\nPreprocess Options: Optional cleanup before deformation. Decimate keeps a percentage of triangles (faster but less detail), and Vertex Merge collapses near-identical vertices within an epsilon (reduces duplicates and can stabilize deformations). Not required for most models, but helpful for very dense STLs or when you need faster iteration.\nImport/Export Settings: Reuse deformation presets across STLs; exported settings include preprocess parameters.\nStats HUD: Displays vertex/triangle counts and deformation time.\nExport: Exports the deformed model as an STL file – save your weird creations!"
+  },
+  {
+    "objectID": "documentation.html#deformation-examples",
+    "href": "documentation.html#deformation-examples",
+    "title": "STLShaper by ToledoEM",
+    "section": "Deformation Examples",
+    "text": "Deformation Examples\n\n\n\nOriginal\n\n\n\n\n\nSine Wave Deformation\n\n\n\n\n\nPixelated Deformation\n\n\n\n\n\nPerspective Distortion\n\n\n\n\n\nRipple Deformation\n\n\n\n\n\nSpherize Deformation"
+  },
+  {
+    "objectID": "documentation.html#idw-shepard-deformation",
+    "href": "documentation.html#idw-shepard-deformation",
+    "title": "STLShaper by ToledoEM",
+    "section": "IDW Shepard Deformation",
+    "text": "IDW Shepard Deformation\nControl points pull vertices based on distance. Closer points pull harder. The result: smooth, organic bending without the grid-like feel of axis-based or noise-driven methods.\n\nKey Features\n\nPoisson Disk Sampling: Evenly distributed control points to prevent clustering\nVolume-Constrained Placement: Points are guaranteed inside the mesh volume\nSeed-Based Generation: Deterministic point placement for reproducible results\nManual Control Points: Optional manual list of points (single or multi-point)\nSampling Rays Control: Adjustable inside-mesh sampling for speed/robustness\nAdaptive Influence: Inverse distance weighting with customizable power falloff\nVisual Feedback: Wireframe spheres show control point positions and influence\nScalable Effects: Parameter ranges scale to model size for consistent output\n\n\n\nTechnical Implementation\n\nMulti-Point IDW: Each vertex is influenced by all control points\nParallel Processing: Web Workers handle heavy computation for large meshes\nReal-time Visualization: Control points scale with model size (5% of largest dimension)\nRobust Volume Detection: Advanced ray casting ensures points are truly inside the mesh"
+  },
+  {
+    "objectID": "documentation.html#perspective-distortion",
+    "href": "documentation.html#perspective-distortion",
+    "title": "STLShaper by ToledoEM",
+    "section": "Perspective Distortion",
+    "text": "Perspective Distortion\nPerspective Distortion simulates the geometric projection of a vanishing point applied directly to mesh vertices — not a camera trick, but an actual vertex transformation.\n\nKey Features\n\nInteractive canvas widget: Drag a dot inside a circle; dot position = stretch direction, center = no effect\n1-point mode: Single vanishing point for classic perspective exaggeration\n2-point mode: Second orange dot adds an independent vanishing point for complex projections\nPlane selector: XY / XZ / YZ maps the 2D widget axes to the correct model-space plane\nFalloff modes: Linear (uniform gradient) or Exponential (strong near vanishing point, soft far away)\nTouch support: Works on mobile and tablet"
+  },
+  {
+    "objectID": "documentation.html#requirements",
+    "href": "documentation.html#requirements",
+    "title": "STLShaper by ToledoEM",
+    "section": "Requirements",
+    "text": "Requirements\n\nModern web browser with Web Worker support (Chrome 4+, Firefox 3.5+, Safari 4+, Edge)\nJavaScript ES6+ features supported by your browser\nThree.js r121 (bundled)\nFileSaver.js (included)\nWeb Workers (required for parallel processing of large deformations)"
+  },
+  {
+    "objectID": "documentation.html#run-options",
+    "href": "documentation.html#run-options",
+    "title": "STLShaper by ToledoEM",
+    "section": "Run Options",
+    "text": "Run Options\n\nRun locally: Clone the repository and open index.html in a modern browser.\nRun online: Open the hosted version at https://toledoem.github.io/stlshaper/."
+  },
+  {
+    "objectID": "documentation.html#setup",
+    "href": "documentation.html#setup",
+    "title": "STLShaper by ToledoEM",
+    "section": "Setup",
+    "text": "Setup\n\nPlace all files (index.html, main.js, libraries) in a directory.\nOpen index.html in your web browser."
+  },
+  {
+    "objectID": "documentation.html#usage",
+    "href": "documentation.html#usage",
+    "title": "STLShaper by ToledoEM",
+    "section": "Usage",
+    "text": "Usage\n\nLoad STL: Click the “File Input” button to select an STL file.\nDeformation Type: Choose the deformation type from the radio buttons (Noise, Sine Wave, Pixelate, IDW Shepard, etc.).\nAdjust Parameters: Use the sliders and inputs to control the deformation parameters. IDW parameters adapt automatically to model size.\nGenerate Deformation: Click the “Generate Deformation” button.\nVisualize: The deformed model will be displayed in the 3D view.\nExport (Optional): Click the “Export Current STL” button to save the deformed model as an STL file."
+  },
+  {
+    "objectID": "documentation.html#controls",
+    "href": "documentation.html#controls",
+    "title": "STLShaper by ToledoEM",
+    "section": "Controls",
+    "text": "Controls\n\nFile Input: Select an STL file.\nRadio Buttons: Choose the deformation effect.\nSliders: Adjust the parameters of the chosen effect.\n\n\nNoise Controls\n\nIntensity: Controls the strength of the noise deformation (0.1 - 5.0)\nScale: Controls the frequency/size of noise features (0.005 - 0.5)\nAxis: Choose which axes to apply noise to (All, X, Y, Z, or combinations)\n\n\n\nSine Wave Controls\n\nAmplitude: Controls the height of the sine waves (1 - 100)\nFrequency: Controls how many waves fit in the model (0.01 - 0.2)\nDriver Axis: Which axis provides the input to the sine function (X, Y, Z)\nDisplacement Axis: Which axes the sine wave displaces (X, Y, Z, or combinations)\n\n\n\nPixelate Controls\n\nVoxel Size: Size of the pixelation grid (0.5 - 50)\nAxis Lock: Which axes to pixelate (All, X, Y, Z, or combinations)\n\n\n\nIDW Shepard Controls\n\nNumber of Points: How many control points to generate (3 - 50)\nSeed: Numeric seed for reproducible control point placement (0 - 10000)\nWeight: Strength of attraction/repulsion at control points (adaptive range by model size)\nPower: Influence falloff with distance (0.5 - 6.0)\nGlobal Scale: Overall deformation scaling (adaptive range by model size)\nGenerate Deformation: Apply the deformation.\nExport Current STL: Export the deformed model.\n\n\n\nPerspective Distortion Controls\n\nCanvas widget: Drag dot to set vanishing point direction and magnitude\nMode: 1-point or 2-point\nPlane: XY / XZ / YZ\nStrength: Overall distortion magnitude\nFalloff: Linear or Exponential"
+  },
+  {
+    "objectID": "documentation.html#code-structure",
+    "href": "documentation.html#code-structure",
+    "title": "STLShaper by ToledoEM",
+    "section": "Code Structure",
+    "text": "Code Structure\n\nindex.html: The main HTML file that sets up the Three.js scene, UI elements, and event listeners.\nmain.js: Core logic for loading the STL, applying deformation, rendering, and UI. Includes Poisson disk sampling, volume detection, and adaptive parameter scaling.\nworker.js: Web Worker for parallel processing of vertex deformations (especially IDW).\nlibraries/: Three.js, FileSaver.js, and other required libraries."
+  },
+  {
+    "objectID": "documentation.html#important-notes",
+    "href": "documentation.html#important-notes",
+    "title": "STLShaper by ToledoEM",
+    "section": "Important Notes",
+    "text": "Important Notes\n\n\n\n\n\n\nWarningPerformance Considerations\n\n\n\n\nThe performance depends on the complexity of the STL model and chosen deformation algorithm\nThe rendering process can be slow with complex models\nWeb Workers improve responsiveness for large meshes and multi-point IDW\n\n\n\n\n\n\n\n\n\nImportantPost-processing Required\n\n\n\nAfter deformation, you may need to repair the mesh in Meshlab. Use these filters:\n\nFilters -&gt; Cleaning and Repairing\nRemove Zero Area Faces (twice)\nRepair Non-manifold Edges (split)"
+  },
+  {
+    "objectID": "documentation.html#notes",
+    "href": "documentation.html#notes",
+    "title": "STLShaper by ToledoEM",
+    "section": "Notes",
+    "text": "Notes\n\nIDW Shepard deformation works best with solid, manifold meshes. Complex or thin-walled models may produce unexpected results.\nSome STLs may require normal regeneration to avoid black/incorrect shading (handled in recent builds)."
+  },
+  {
+    "objectID": "documentation.html#changelog",
+    "href": "documentation.html#changelog",
+    "title": "STLShaper by ToledoEM",
+    "section": "Changelog",
+    "text": "Changelog\n\n0.8.0 (2026-05-01)\n\nExposed global scene, camera, and renderer for browser console access\nImproved UI/GUI with enhanced styling and layout refinements\nCanvas widget layout and interaction improvements\nDocumentation rendering and organization\n\n\n\n0.7.0 (2026-04-21)\n\nAdded Perspective Distortion deformation with interactive vanishing-point picker widget\nCircle canvas widget with draggable dot to set distortion direction; center = no effect\n1-point and 2-point mode: second orange dot adds independent vanishing point\nPlane selector (XY / XZ / YZ) maps widget axes to model space\nLinear and exponential falloff modes\nTouch support for the canvas widget\n\n\n\n0.6.0 (2026-02-10)\n\nAdded importable deformation settings to reuse presets across STLs\nAdded on-screen axis gizmo with X/Y/Z labels\nAdded multi-axis selection for axis-based deformations (twist, bend, ripple, hyper)\nImproved Menger sponge, tessellation range, settings export, and UI/camera performance\nFixed shading issues by ensuring valid vertex normals, plus assorted robustness fixes\n\n\n\n0.5.0 (2026-02-08)\n\nUpdated GUI and camera behavior\nFixed P0, P1, P3, and P4 issue sets\n\n\n\n0.4.0 (2025-10-28)\n\nAdded settings workflow groundwork and Web Worker processing\nGeneral refinements and cleanup\n\n\n\n0.3.0 (2025-10-27)\n\nInitial autoloader workflow\n\n\n\n0.2.0 (2025-10-06)\n\nBug fixes and iterative improvements\n\n\n\n0.1.0 (2025-10-04)\n\nInitial project scaffold and documentation"
+  },
+  {
+    "objectID": "documentation.html#contributing",
+    "href": "documentation.html#contributing",
+    "title": "STLShaper by ToledoEM",
+    "section": "Contributing",
+    "text": "Contributing\nFeel free to contribute to this project! You can:\n\nSubmit bug reports\nSuggest feature requests\nCreate pull requests"
+  },
+  {
+    "objectID": "documentation.html#license-attributions",
+    "href": "documentation.html#license-attributions",
+    "title": "STLShaper by ToledoEM",
+    "section": "License & Attributions",
+    "text": "License & Attributions\nSTLShaper is released under the MIT License.\n\nThird-Party Libraries & Resources\n\nThree.js (v0.121.1) – MIT License\n\n3D graphics library for WebGL rendering\n\nBootstrap Icons – MIT License\n\nIcon library for UI elements (box-arrow-down, box-arrow-in-down, filetype-json, balloon icons)\n\nFileSaver.js – MIT License\n\nClient-side file download functionality for STL exports\n\n\n\n\nSample STL Models\nSample 3D models used for testing and demonstration are sourced from:\n\nNIH 3D Print Exchange – Public Domain\n\nFreely available biomedical 3D models for non-commercial use and research\n\n\n\n\nAttribution\nBuilt by Enrique Toledo (@ToledoEM)\nOn Printables\n\nDisclaimer: This tool is provided as-is for experimental and educational purposes."
+  }
+]
