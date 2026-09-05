@@ -26,7 +26,6 @@ All notable changes to this project will be documented in this file.
   value-noise field that displaces in lumps rather than static.
 - Seed control for the Noise deformation.
 - CI workflow: JavaScript syntax checks, control-wiring validation, HTML validation.
-- Pages deploy workflow rendering the docs and the app together via Quarto.
 - `scripts/check-control-ids.mjs`, which verifies that every deformation has its
   panel, every slider binds an element that exists, and the functions mirrored
   between `main.js` and `worker.js` have not drifted apart.
