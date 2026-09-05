@@ -11,11 +11,11 @@ jobs:
     name: Validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
 
       # main.js is injected by a type="module" bootstrap, so a syntax error
       # takes down the whole app with nothing in the UI to indicate why.
@@ -43,11 +43,11 @@ jobs:
     name: Tests and coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - run: npm ci
