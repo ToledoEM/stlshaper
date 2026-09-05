@@ -2409,15 +2409,22 @@ async function runDeformation(geometry, key, params) {
     statusDisplay.update(`Processing ${key} deformation... ${progress}%`, true);
   });
 
-  // Use worker pool for parallel processing
-  const deformedGeometry = await workerPool.deformVertices(
-    key,
-    params,
-    workingGeometry
-  );
+  try {
+    // Use worker pool for parallel processing
+    const deformedGeometry = await workerPool.deformVertices(
+      key,
+      params,
+      workingGeometry
+    );
 
-  ensureGeometryNormals(deformedGeometry);
-  return normalizeGeometry(deformedGeometry);
+    ensureGeometryNormals(deformedGeometry);
+    return normalizeGeometry(deformedGeometry);
+  } finally {
+    // Drop the callback once this run is done. A chunk completing late would
+    // otherwise keep writing "Processing..." over whatever the user did next —
+    // a Set Slot confirmation, say — making the later action look ignored.
+    workerPool.setProgressCallback(null);
+  }
 }
 
 // Runs the filled chain slots in order, each stage fed the previous stage's

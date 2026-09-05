@@ -546,7 +546,9 @@ function perspShape(vertices, params, bbox) {
 
 // --- Worker Message Handling ---
 
-self.onmessage = function(e) {
+// Named rather than inlined into the onmessage assignment so tests can drive
+// the dispatch directly, without a Worker host.
+function handleMessage(e) {
   const { type, deformationType, params, vertices, bbox, chunkId, workerId } = e.data;
 
   if (type === 'deform') {
@@ -615,4 +617,40 @@ self.onmessage = function(e) {
       });
     }
   }
+}
+
+// Only bind inside a real Worker. Importing this module for tests must not
+// register a handler, and `self` is absent (or not a Worker scope) under Node.
+if (typeof self !== "undefined" && typeof self.postMessage === "function") {
+  self.onmessage = handleMessage;
+}
+
+export {
+  handleMessage,
+  // Noise
+  simpleHash,
+  noise,
+  perlinFade,
+  perlinLatticeValue,
+  perlinNoise,
+  perlinFractal,
+  sampleNoise,
+  // Helpers
+  getAxisList,
+  // Deformations
+  noiseShape,
+  sineDeformShape,
+  pixelateShape,
+  idwShape,
+  inflateShape,
+  twistShape,
+  bendShape,
+  rippleShape,
+  warpShape,
+  hyperShape,
+  boundaryDisruptShape,
+  spherizeShape,
+  perspVpTo3D,
+  perspApplyVP,
+  perspShape,
 };
