@@ -1,5 +1,13 @@
 # STLShaper ~ Subversion of Form
-Version: 0.7.0 (2026-04-21)
+
+[![CI](https://github.com/ToledoEM/stlShaper/actions/workflows/ci.yml/badge.svg)](https://github.com/ToledoEM/stlShaper/actions/workflows/ci.yml)
+[![Deploy Docs](https://github.com/ToledoEM/stlShaper/actions/workflows/publish.yml/badge.svg)](https://github.com/ToledoEM/stlShaper/actions/workflows/publish.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Version](https://img.shields.io/badge/version-0.9.0-blue)
+![Three.js](https://img.shields.io/badge/three.js-r121-black)
+![No Build](https://img.shields.io/badge/build-none-brightgreen)
+
+Version: 0.9.0 (2026-09-05)
 
 
 **This is under constant development and may change at any time :-)** 
@@ -21,7 +29,7 @@ STLShaper loads STL files and applies mathematical deformations: noise, sine wav
 
 - **STL Loading**: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).
 - **Deformation Effects**:
-  - **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion.
+  - **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion. Choose white noise for harsh granular static, or Perlin for a coherent field that swells in organic lumps. A seed control varies the pattern without touching the other settings.
   - **Sine Wave**: Displaces vertices along a sine curve, creating rhythmic ripples across the model.
   - **Pixelate**: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.
   - **IDW Shepard**: Multiple control points scattered through the model's interior. Each vertex moves based on distance to those points—closer points pull harder.
@@ -159,7 +167,7 @@ You can use STLShaper in either of these ways:
 *   **`index.html`:**  The main HTML file that sets up the Three.js scene, UI elements, and event listeners.
 *   **`main.js`:**  Contains the core logic for loading the STL, applying the deformation, rendering the model, and handling user interactions. Includes Poisson disk sampling, volume detection, and adaptive parameter scaling.
 *   **`worker.js`:** Web Worker for parallel processing of vertex deformations, especially important for IDW with multiple control points.
-*   **`libraries/`:** Contains Three.js, p5.js, and other required libraries.
+*   **`libraries/`:** FileSaver.js, used for the STL download. Three.js and its OrbitControls/STLLoader add-ons are loaded from the jsDelivr CDN in `index.html`.
 
 ## Performance & Technical Notes
 

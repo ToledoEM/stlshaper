@@ -2,6 +2,39 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-09-05
+### Added
+- Noise type selector: white noise (the original hash) or Perlin, a coherent
+  value-noise field that displaces in lumps rather than static.
+- Seed control for the Noise deformation.
+- CI workflow: JavaScript syntax checks, control-wiring validation, HTML validation.
+- Pages deploy workflow rendering the docs and the app together via Quarto.
+- `scripts/check-control-ids.mjs`, which verifies that every deformation has its
+  panel, every slider binds an element that exists, and the functions mirrored
+  between `main.js` and `worker.js` have not drifted apart.
+- IDW settings exports now record the control points actually used, so a recipe
+  reproduces on re-import instead of regenerating different points.
+
+### Fixed
+- Perspective Distortion in exponential mode produced discontinuities at 10,000-vertex
+  chunk boundaries; the normalization basis is now computed over the whole mesh.
+- A failing worker left the app waiting forever with the status stuck on
+  "Processing". Failed chunks now fall back to their undeformed vertices and the
+  operation always completes.
+- Importing spherize or perspective settings updated the values but left every
+  slider and the vanishing-point widget showing the previous state.
+- Loading an STL threw if a value label was absent from the page.
+- Vertex merge with epsilon 0 collapsed the entire mesh to a single point.
+- The progress bar stayed stranded mid-fill after a failed deformation.
+- Deformed geometries were never released, leaking GPU memory on each run.
+
+### Changed
+- `_quarto.yaml` is tracked, and the site build now includes the application
+  itself; previously `_site` held a page whose scripts were missing.
+- Sample STLs (54 MB) are excluded from the deployed site.
+- Removed the unused Three.js shim and dead branches in `worker.js`.
+- `CLAUDE.md` is no longer tracked in git.
+
 ## [0.8.0] - 2026-05-01
 ### Added
 - Global scene, camera, and renderer exposure for browser console access.

@@ -1,0 +1,23 @@
+{
+  "originalFileName": "3dbenchy.stl",
+  "deformationType": "persp",
+  "settings": {
+    "strength": 0.85,
+    "mode": "linear",
+    "plane": "YZ",
+    "vpMode": 2,
+    "vp1": {
+      "x": -0.4519230769230769,
+      "y": 0.47179471529447115
+    },
+    "vp2": {
+      "x": 0.875,
+      "y": -0.25897451547475964
+    }
+  },
+  "preprocess": {
+    "decimate": 100,
+    "mergeEpsilon": 0
+  },
+  "exportDateTime": "2026-05-01T21:10:36.599Z"
+}

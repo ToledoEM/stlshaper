@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # main.js is injected by a type="module" bootstrap, so a syntax error
+      # takes down the whole app with nothing in the UI to indicate why.
+      - name: Syntax check
+        run: |
+          node --check main.js
+          node --check worker.js
+
+      # Catches renamed slider IDs, deformations registered without a panel,
+      # and drift between the hand-mirrored copies in main.js and worker.js.
+      - name: Control wiring
+        run: node scripts/check-control-ids.mjs
+
+      # Advisory only: this has not been run against index.html yet, so it must
+      # not gate the build. Once it reports clean, drop continue-on-error.
+      - name: HTML validation
+        continue-on-error: true
+        uses: Cyb3r-Jak3/html5validator-action@v7.2.0
+        with:
+          root: .
+          blacklist: _site site_libs documentation_files libraries
+          log_level: WARNING
