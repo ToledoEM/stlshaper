@@ -17,7 +17,23 @@ dist/
 build/
 
 # Quarto
+# NOTE: _quarto.yaml is deliberately NOT ignored — it is the build's input
+# config and the publish workflow cannot render without it.
 /.quarto/
 **/*.quarto_ipynb
 documentation_files/
-_quarto.yaml
+
+# Quarto build output — currently COMMITTED because GitHub Pages serves it
+# from the main branch. Once .github/workflows/publish.yml has run green and
+# the Pages source is switched to "GitHub Actions", uncomment these and run:
+#   git rm --cached -r _site site_libs documentation.html search.json
+# Do not uncomment before then, or the live site goes offline.
+# _site/
+# site_libs/
+# documentation.html
+# search.json
+
+# Agent tooling and local notes (never publish)
+CLAUDE.md
+CLAUDE-*.md
+.claude/

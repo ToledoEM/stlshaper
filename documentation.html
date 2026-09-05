@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.9.37">
+<meta name="generator" content="quarto-1.10.18">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -12,10 +12,13 @@
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
 */
-code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
@@ -39,10 +42,10 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-f0713a80c085f0d9a0c3bd6e7a074e09.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-03888a1301f94e052e6cf67f4380f44c.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -193,7 +196,7 @@ Tip
 <li><strong>STL Loading</strong>: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).</li>
 <li><strong>Deformation Effects</strong>:
 <ul>
-<li><strong>Noise</strong>: Applies a noise-based deformation, introducing chaotic movement and distortion.</li>
+<li><strong>Noise</strong>: Applies a noise-based deformation, introducing chaotic movement and distortion. Choose white noise for harsh granular static, or Perlin for a coherent field that swells in organic lumps. A seed control varies the pattern without touching the other settings.</li>
 <li><strong>Sine Wave</strong>: Displaces vertices along a sine curve, creating rhythmic ripples across the model.</li>
 <li><strong>Pixelate</strong>: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.</li>
 <li><strong>IDW Shepard</strong>: Multiple control points scattered through the model’s interior. Each vertex moves based on distance to those points—closer points pull harder.</li>
@@ -339,10 +342,17 @@ Tip
 <section id="noise-controls" class="level3">
 <h3 class="anchored" data-anchor-id="noise-controls">Noise Controls</h3>
 <ul>
+<li><strong>Type:</strong> Which noise field drives the displacement.
+<ul>
+<li><em>White Noise</em> — every vertex gets an independent random offset. Harsh and granular; the surface reads as static.</li>
+<li><em>Perlin</em> — a coherent field, so nearby vertices move together. The surface reads as organic lumps and swells rather than grain.</li>
+</ul></li>
+<li><strong>Seed:</strong> Changes the random pattern without changing any other setting (0 - 10000). Useful for trying variations of the same look.</li>
 <li><strong>Intensity:</strong> Controls the strength of the noise deformation (0.1 - 5.0)</li>
-<li><strong>Scale:</strong> Controls the frequency/size of noise features (0.005 - 0.5)</li>
+<li><strong>Scale:</strong> Controls the frequency/size of noise features (0.005 - 0.5). In Perlin mode this sets how large the lumps are — lower values give broader, smoother swells.</li>
 <li><strong>Axis:</strong> Choose which axes to apply noise to (All, X, Y, Z, or combinations)</li>
 </ul>
+<p>Settings files saved before the Type control existed load as White Noise, so older recipes keep producing the result they always did.</p>
 </section>
 <section id="sine-wave-controls" class="level3">
 <h3 class="anchored" data-anchor-id="sine-wave-controls">Sine Wave Controls</h3>
@@ -389,7 +399,7 @@ Tip
 <li><strong><code>index.html</code>:</strong> The main HTML file that sets up the Three.js scene, UI elements, and event listeners.</li>
 <li><strong><code>main.js</code>:</strong> Core logic for loading the STL, applying deformation, rendering, and UI. Includes Poisson disk sampling, volume detection, and adaptive parameter scaling.</li>
 <li><strong><code>worker.js</code>:</strong> Web Worker for parallel processing of vertex deformations (especially IDW).</li>
-<li><strong><code>libraries/</code>:</strong> Three.js, FileSaver.js, and other required libraries.</li>
+<li><strong><code>libraries/</code>:</strong> FileSaver.js, used for the STL download. Three.js and its OrbitControls/STLLoader add-ons are loaded from the jsDelivr CDN in <code>index.html</code>.</li>
 </ul>
 </section>
 <section id="important-notes" class="level2">

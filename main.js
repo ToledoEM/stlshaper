@@ -213,8 +213,9 @@ function createSTLExporter() {
 }
 
 // --- Placeholder Noise Function (Required for "noiseShape" deformation) ---
-// NOTE: For true Perlin/Simplex noise quality, you should use a library like 'simplex-noise.js'
-// or another THREE.js compatible noise implementation instead of this basic placeholder.
+// Twin: simpleHash / noise in worker.js — keep both copies identical.
+// NOTE: this hash has no spatial coherence; it produces white noise, not a
+// Perlin/Simplex field. See perlinFractal below for the coherent alternative.
 let noiseSeed = 0;
 function simpleHash(x, y, z) {
   let h = 17 + 31 * noiseSeed;
@@ -228,12 +229,95 @@ function noise(x, y, z) {
   return simpleHash(Math.floor(x * 10), Math.floor(y * 10), Math.floor(z * 10));
 }
 
+// --- Coherent Value Noise ---
+// Twin: perlin* helpers in worker.js — keep both copies identical.
+// Gradient-free value noise: hash the eight corners of the containing lattice
+// cell and blend them with a quintic fade. Unlike simpleHash above, nearby
+// points return nearby values, which is what makes the displacement read as
+// lumps rather than static. Returns 0-1.
+function perlinFade(t) {
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+function perlinLatticeValue(ix, iy, iz) {
+  // Use Math.imul and unsigned shifts throughout: plain `*` overflows past 2^53
+  // and a signed `>>` biases the result low (it capped the output at 0.5).
+  let h = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^
+          Math.imul(iz, 1274126177) ^ Math.imul(noiseSeed, 971);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967295;
+}
+
+function perlinNoise(x, y, z) {
+  const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z);
+  const fx = perlinFade(x - x0);
+  const fy = perlinFade(y - y0);
+  const fz = perlinFade(z - z0);
+
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  const c000 = perlinLatticeValue(x0, y0, z0);
+  const c100 = perlinLatticeValue(x0 + 1, y0, z0);
+  const c010 = perlinLatticeValue(x0, y0 + 1, z0);
+  const c110 = perlinLatticeValue(x0 + 1, y0 + 1, z0);
+  const c001 = perlinLatticeValue(x0, y0, z0 + 1);
+  const c101 = perlinLatticeValue(x0 + 1, y0, z0 + 1);
+  const c011 = perlinLatticeValue(x0, y0 + 1, z0 + 1);
+  const c111 = perlinLatticeValue(x0 + 1, y0 + 1, z0 + 1);
+
+  const x00 = lerp(c000, c100, fx);
+  const x10 = lerp(c010, c110, fx);
+  const x01 = lerp(c001, c101, fx);
+  const x11 = lerp(c011, c111, fx);
+
+  return lerp(lerp(x00, x10, fy), lerp(x01, x11, fy), fz);
+}
+
+// A single octave of value noise spans only part of 0-1, so it would feel far
+// weaker than white noise at the same intensity. Summing octaves and stretching
+// the result about its midpoint fixes that, keeping the intensity slider
+// meaningful in either mode.
+const PERLIN_OCTAVES = 4;
+const PERLIN_LACUNARITY = 2.0;
+const PERLIN_GAIN = 0.5;
+// The scale slider already sets feature size; this only lifts its 0.005-0.5
+// range into one where a unit lattice gives visible lumps rather than a single
+// flat cell. Keep it low, or neighbouring vertices land in different cells and
+// the result degenerates back into static.
+const PERLIN_FREQUENCY = 1.0;
+const PERLIN_CONTRAST = 2.77; // measured: lifts 4-octave sd 0.127 to ~0.35
+
+function perlinFractal(x, y, z) {
+  let amplitude = 1;
+  let frequency = PERLIN_FREQUENCY;
+  let sum = 0;
+  let totalAmplitude = 0;
+  for (let i = 0; i < PERLIN_OCTAVES; i++) {
+    sum += perlinNoise(x * frequency, y * frequency, z * frequency) * amplitude;
+    totalAmplitude += amplitude;
+    amplitude *= PERLIN_GAIN;
+    frequency *= PERLIN_LACUNARITY;
+  }
+  const normalized = sum / totalAmplitude; // 0-1, centred near 0.5
+  return Math.max(0, Math.min(1, (normalized - 0.5) * PERLIN_CONTRAST + 0.5));
+}
+
+// Dispatches on the noise type chosen in the UI. `type` is absent in settings
+// files saved before the option existed, so it must default to white.
+function sampleNoise(type, x, y, z) {
+  return type === "perlin" ? perlinFractal(x, y, z) : noise(x, y, z);
+}
+
 // --- THREE.js Core Variables ---
 let scene, camera, renderer, controls;
 let axisScene, axisCamera, axisHelper, axisLabels;
 const AXIS_VIEWPORT_SIZE = 160;
 const AXIS_MARGIN = 16;
 const AXIS_CAMERA_DISTANCE = 3.2;
+// Bounding-sphere radius above which a model is assumed to be in real-world mm
+// rather than scene units, triggering the rescale prompt.
+const REAL_WORLD_SCALE_RADIUS = 500;
 let container = document.getElementById("container");
 
 // Core model storage
@@ -251,9 +335,10 @@ let wireMesh = null;
 let lastGeometryForView = null;
 
 let workerPool; // Worker pool for parallel processing
+let perspCanvasRedraw = null; // Redraws the vanishing-point widget; set in setupParameterControls
 
 let deformParams = {
-  noise: { intensity: 1.5, scale: 0.02, axis: "all" },
+  noise: { intensity: 1.5, scale: 0.02, axis: "all", type: "white", seed: 0 },
   sine: { amplitude: 15, frequency: 0.05, driverAxis: "x", dispAxis: "x" },
   pixel: { size: 5, axis: "all" },
   idw: {
@@ -570,6 +655,17 @@ class WorkerPool {
     this.onProgress = null;
     this.onComplete = null;
     this.chunkSize = 10000; // Process 10K vertices per chunk
+
+    // Per-run state, reset at the start of every deformVertices call.
+    this.results = {};
+    this.chunkSources = {};
+    this.completedChunks = 0;
+    this.totalChunks = 0;
+    this.originalVertexCount = 0;
+    this.indexArray = null;
+    this.indexType = null;
+    this.failedChunks = 0;
+
     this.initializeWorkers();
   }
 
@@ -622,10 +718,9 @@ class WorkerPool {
       }
     } else if (type === 'error') {
       console.error(`Worker ${workerId} error:`, error);
-      // Continue with other workers
       worker.isBusy = false;
       this.availableWorkers.push(worker);
-      this.processNextTask();
+      this.failChunk(chunkId);
     }
   }
 
@@ -633,7 +728,44 @@ class WorkerPool {
     console.error('Worker error:', e);
     worker.isBusy = false;
     this.availableWorkers.push(worker);
-    this.processNextTask();
+    // A worker-level error carries no chunkId, so we cannot tell which chunk
+    // died. Fail the lowest-numbered chunk still outstanding.
+    this.failChunk(this.findOutstandingChunk());
+  }
+
+  findOutstandingChunk() {
+    for (let i = 0; i < this.totalChunks; i++) {
+      if (!this.results[i]) return i;
+    }
+    return -1;
+  }
+
+  // Count a chunk as done even though it failed, substituting its undeformed
+  // source vertices. Without this the completed count never reaches the total,
+  // finalizeDeformation never fires, and the awaiting promise hangs forever.
+  failChunk(chunkId) {
+    if (!this.isProcessing) return;
+
+    if (chunkId >= 0 && !this.results[chunkId]) {
+      const source = this.chunkSources[chunkId];
+      if (source) {
+        this.results[chunkId] = source;
+      } else {
+        console.warn(`No source data retained for chunk ${chunkId}.`);
+        this.results[chunkId] = null;
+      }
+      this.failedChunks++;
+      this.completedChunks++;
+      if (this.onProgress) {
+        this.onProgress(this.completedChunks, this.totalChunks);
+      }
+    }
+
+    if (this.completedChunks >= this.totalChunks) {
+      this.finalizeDeformation();
+    } else {
+      this.processNextTask();
+    }
   }
 
   async deformVertices(deformationType, params, geometry) {
@@ -646,14 +778,20 @@ class WorkerPool {
       }
 
       this.onComplete = resolve;
+      this.onError = reject;
       this.isProcessing = true;
       this.results = {};
+      this.chunkSources = {};
       this.completedChunks = 0;
+      this.failedChunks = 0;
 
       // Get vertices from geometry
       const positionAttribute = geometry.getAttribute('position');
       const vertices = positionAttribute.array.slice(); // Copy array
       const bbox = geometry.boundingBox;
+      // Derived here rather than assigned by the caller, so finalizeDeformation
+      // can never size its output buffer from a stale or missing value.
+      this.originalVertexCount = positionAttribute.count * 3;
       this.indexArray = geometry.index ? geometry.index.array.slice() : null;
       this.indexType = geometry.index ? geometry.index.array.constructor : null;
 
@@ -661,15 +799,18 @@ class WorkerPool {
       const chunks = this.chunkVertices(vertices, this.chunkSize);
       this.totalChunks = chunks.length;
 
-      // Create tasks for each chunk
-      this.pendingTasks = chunks.map((chunk, index) => ({
-        chunkId: index,
-        vertices: chunk.vertices,
-        startIndex: chunk.startIndex,
-        deformationType,
-        params,
-        bbox
-      }));
+      // Create tasks for each chunk. Each chunk's buffer is transferred to the
+      // worker, so keep an untransferred copy to fall back on if it errors.
+      this.pendingTasks = chunks.map((chunk, index) => {
+        this.chunkSources[index] = chunk.vertices.slice();
+        return {
+          chunkId: index,
+          vertices: chunk.vertices,
+          deformationType,
+          params,
+          bbox
+        };
+      });
 
       // Start processing
       for (let i = 0; i < Math.min(this.availableWorkers.length, this.pendingTasks.length); i++) {
@@ -683,10 +824,7 @@ class WorkerPool {
     for (let i = 0; i < vertices.length; i += chunkSize * 3) { // *3 for x,y,z components
       const endIndex = Math.min(i + chunkSize * 3, vertices.length);
       const chunkVertices = vertices.slice(i, endIndex);
-      chunks.push({
-        vertices: chunkVertices,
-        startIndex: i / 3 // Convert back to vertex index
-      });
+      chunks.push({ vertices: chunkVertices });
     }
     return chunks;
   }
@@ -715,13 +853,21 @@ class WorkerPool {
     const finalVertices = new Float32Array(this.originalVertexCount);
 
     for (let chunkId = 0; chunkId < this.totalChunks; chunkId++) {
-      const chunkVertices = this.results[chunkId];
+      // A failed chunk falls back to its undeformed source rather than zeros,
+      // so the mesh stays intact where the deformation could not be applied.
+      const chunkVertices = this.results[chunkId] || this.chunkSources[chunkId];
       if (!chunkVertices) {
         console.warn(`Missing chunk ${chunkId} during deformation; leaving zeros.`);
         continue;
       }
       const startIndex = chunkId * this.chunkSize * 3;
       finalVertices.set(chunkVertices, startIndex);
+    }
+
+    if (this.failedChunks > 0) {
+      console.warn(
+        `${this.failedChunks} of ${this.totalChunks} chunks failed; those regions are undeformed.`
+      );
     }
 
     // Update geometry
@@ -739,44 +885,56 @@ class WorkerPool {
     geometry.computeBoundingSphere();
 
     this.isProcessing = false;
+    // Release the retained per-chunk copies; on a large mesh these double the
+    // vertex memory held by the pool.
+    this.chunkSources = {};
+    this.results = {};
+
     if (this.onComplete) {
       this.onComplete(geometry);
     }
   }
 
+  // Single-threaded path, used when Worker construction fails — notably under
+  // file:// in Chrome. Functions taking only `geom` read deformParams directly;
+  // that asymmetry is intentional, see CLAUDE.md.
+  // Keep these cases in sync with the switch in worker.js onmessage.
   fallbackDeformation(deformationType, params, geometry) {
-    // Single-threaded fallback using original functions
     const geom = geometry.clone();
 
-    if (deformationType === "noise") {
-      return noiseShape(geom);
-    } else if (deformationType === "sine") {
-      return sineDeformShape(geom);
-    } else if (deformationType === "pixel") {
-      return pixelateShape(geom);
-    } else if (deformationType === "idw") {
-      return idwShape(geom, params);
-    } else if (deformationType === "inflate") {
-      return inflateShape(geom, params);
-    } else if (deformationType === "twist") {
-      return twistShape(geom, params);
-    } else if (deformationType === "bend") {
-      return bendShape(geom, params);
-    } else if (deformationType === "ripple") {
-      return rippleShape(geom, params);
-    } else if (deformationType === "warp") {
-      return warpShape(geom, params);
-    } else if (deformationType === "hyper") {
-      return hyperShape(geom, params);
-    } else if (deformationType === "boundary") {
-      return boundaryDisruptShape(geom, params);
-    } else if (deformationType === "spherize") {
-      return spherizeShape(geom);
-    } else if (deformationType === "persp") {
-      return perspShape(geom);
+    switch (deformationType) {
+      case "noise":
+        return noiseShape(geom);
+      case "sine":
+        return sineDeformShape(geom);
+      case "pixel":
+        return pixelateShape(geom);
+      case "idw":
+        return idwShape(geom, params);
+      case "inflate":
+        return inflateShape(geom, params);
+      case "twist":
+        return twistShape(geom, params);
+      case "bend":
+        return bendShape(geom, params);
+      case "ripple":
+        return rippleShape(geom, params);
+      case "warp":
+        return warpShape(geom, params);
+      case "hyper":
+        return hyperShape(geom, params);
+      case "boundary":
+        return boundaryDisruptShape(geom, params);
+      case "spherize":
+        return spherizeShape(geom);
+      case "persp":
+        return perspShape(geom);
+      default:
+        console.warn(
+          `fallbackDeformation: no handler for "${deformationType}"; returning geometry unchanged.`
+        );
+        return geom;
     }
-
-    return geom;
   }
 
   setProgressCallback(callback) {
@@ -910,7 +1068,7 @@ function init() {
   const OrbitControlsClass = window.OrbitControls || THREE.OrbitControls;
   if (!OrbitControlsClass) {
     console.error(
-      "OrbitControls class not found. Ensure 'libraries/OrbitControls.js' is loaded correctly and is not an ES Module version.",
+      "OrbitControls class not found. It is imported from the jsDelivr CDN in index.html and assigned to window.OrbitControls; check that import and your network connection.",
     );
     statusDisplay.error("3D Controls Error. Check console/file path.");
     controls = null;
@@ -1384,6 +1542,10 @@ function setupParameterControls() {
   bindRange("noise", "intensity", "noiseIntensity", "noiseIntensityVal");
   bindRange("noise", "scale", "noiseScale", "noiseScaleVal");
   bindSelect("noise", "axis", "noiseAxis");
+  bindSelect("noise", "type", "noiseType");
+  bindNumber("noise", "seed", "noiseSeed", "noiseSeedVal", (value) =>
+    Math.max(0, Math.min(10000, value))
+  );
 
   // Sine
   bindRange("sine", "amplitude", "sineAmp", "sineAmpVal");
@@ -1451,12 +1613,12 @@ function setupParameterControls() {
   bindSelect("persp", "mode", "perspMode");
   bindSelect("persp", "plane", "perspPlane");
 
-  const drawPerspCanvas = setupPerspCanvas(updateHandler);
+  perspCanvasRedraw = setupPerspCanvas(updateHandler);
 
   document.querySelectorAll('input[name="vpMode"]').forEach(r => {
     r.addEventListener("change", e => {
       deformParams.persp.vpMode = parseInt(e.target.value);
-      if (drawPerspCanvas) drawPerspCanvas();
+      if (perspCanvasRedraw) perspCanvasRedraw();
       updateHandler("persp");
     });
   });
@@ -1510,7 +1672,8 @@ function updateAdaptiveParameterRanges() {
     deformParams.idw.weight = Math.max(parseFloat(idwWeightInput.min),
                                        Math.min(parseFloat(idwWeightInput.max), currentWeight));
     idwWeightInput.value = deformParams.idw.weight;
-    document.getElementById("idwWeightVal").textContent = deformParams.idw.weight;
+    const idwWeightVal = document.getElementById("idwWeightVal");
+    if (idwWeightVal) idwWeightVal.textContent = deformParams.idw.weight;
   }
 
   if (idwScaleInput) {
@@ -1522,7 +1685,8 @@ function updateAdaptiveParameterRanges() {
     deformParams.idw.scale = Math.max(parseFloat(idwScaleInput.min),
                                       Math.min(parseFloat(idwScaleInput.max), currentScale));
     idwScaleInput.value = deformParams.idw.scale;
-    document.getElementById("idwScaleVal").textContent = deformParams.idw.scale;
+    const idwScaleVal = document.getElementById("idwScaleVal");
+    if (idwScaleVal) idwScaleVal.textContent = deformParams.idw.scale;
   }
 
   console.log(`Updated IDW parameter ranges for model size ${maxDimension.toFixed(2)}: weight ±${idwWeightInput?.max || 'N/A'}, scale ${idwScaleInput?.min || 'N/A'} - ${idwScaleInput?.max || 'N/A'}`);
@@ -1561,8 +1725,8 @@ function checkModelScale() {
   const radius = originalGeometry.boundingSphere?.radius || 0;
   const prompt = document.getElementById("scale-prompt");
   if (!prompt) return;
-  // Camera sits at radius * 2.5; if model radius > 500 it's likely real-world mm scale
-  if (radius > 500) {
+  // Camera sits at radius * 2.5; beyond this the model is likely real-world mm
+  if (radius > REAL_WORLD_SCALE_RADIUS) {
     prompt.style.display = "block";
   } else {
     prompt.style.display = "none";
@@ -1730,6 +1894,12 @@ function decimateGeometry(geometry, keepPercent) {
 function mergeVerticesGeometry(geometry, epsilon) {
   const position = geometry.getAttribute("position");
   if (!position || position.count === 0) return geometry;
+  // Guard: epsilon 0 makes `1 / epsilon` Infinity, collapsing every vertex into
+  // one bucket. Callers already check this, but the check lives 130 lines away.
+  if (!(epsilon > 0)) {
+    console.warn("Vertex merge skipped: epsilon must be greater than 0.");
+    return geometry;
+  }
   const positions = position.array;
   const map = new Map();
   const unique = [];
@@ -1946,6 +2116,26 @@ async function generateCurrent() {
       console.log(`Using ${controlPoints.length} control points for IDW deformation`);
     }
 
+    // Perspective normalizes against the largest projection across the whole
+    // mesh. Workers only ever see a 10K-vertex chunk, so compute it here and
+    // pass it down, or each chunk would scale against its own local maximum.
+    if (currentModelKey === 'persp') {
+      workingGeometry.computeBoundingBox();
+      const pbox = workingGeometry.boundingBox;
+      const pcx = (pbox.min.x + pbox.max.x) * 0.5;
+      const pcy = (pbox.min.y + pbox.max.y) * 0.5;
+      const pcz = (pbox.min.z + pbox.max.z) * 0.5;
+      const parr = workingGeometry.getAttribute('position').array;
+      params.projMax1 = perspComputeProjMax(
+        parr, pcx, pcy, pcz, perspVpTo3D(params.vp1, params.plane)
+      );
+      if (params.vpMode === 2) {
+        params.projMax2 = perspComputeProjMax(
+          parr, pcx, pcy, pcz, perspVpTo3D(params.vp2, params.plane)
+        );
+      }
+    }
+
     const startTime = performance.now();
 
     // Topology-changing methods are handled on main thread
@@ -1965,9 +2155,6 @@ async function generateCurrent() {
       statusDisplay.update(`Processing ${currentModelKey} deformation... ${progress}%`, true);
     });
 
-    // Store original vertex count for worker pool
-    workerPool.originalVertexCount = workingGeometry.attributes.position.count * 3;
-
     // Use worker pool for parallel processing
     const deformedGeometry = await workerPool.deformVertices(
       currentModelKey,
@@ -1985,8 +2172,18 @@ async function generateCurrent() {
 
   } catch (error) {
     console.error('Deformation error:', error);
+    // The progress bar only self-hides on reaching 100%, so a failure would
+    // otherwise leave it stranded mid-fill.
+    hideProgressBar();
     statusDisplay.error('Error generating deformation.');
   }
+}
+
+function hideProgressBar() {
+  const progressContainer = document.getElementById('progressContainer');
+  const progressFill = document.getElementById('progressFill');
+  if (progressContainer) progressContainer.style.display = 'none';
+  if (progressFill) progressFill.style.width = '0%';
 }
 
 // --- THREE.js Rendering Logic ---
@@ -2000,6 +2197,25 @@ function disposeMeshMaterial(mesh) {
     return;
   }
   if (typeof material.dispose === "function") material.dispose();
+}
+
+// Release a geometry the viewer is dropping, unless it is still referenced as
+// the original or as one of the cached deformation results.
+function disposeUnreferencedGeometry(geometry) {
+  if (!geometry || typeof geometry.dispose !== "function") return;
+  if (geometry === originalGeometry) return;
+  for (const key in deformedGeometries) {
+    if (deformedGeometries[key] === geometry) return;
+  }
+  geometry.dispose();
+}
+
+// Swap a mesh's geometry, disposing the outgoing one if nothing else holds it.
+function setMeshGeometry(mesh, geometry) {
+  const previous = mesh.geometry;
+  if (previous === geometry) return;
+  mesh.geometry = geometry;
+  disposeUnreferencedGeometry(previous);
 }
 
 function updateCameraForGeometry(geometry, forceReset = false) {
@@ -2074,7 +2290,7 @@ function updateSceneMeshes() {
       solidMesh = new THREE.Mesh(geometryToDraw, material);
       meshGroup.add(solidMesh);
     } else {
-      solidMesh.geometry = geometryToDraw;
+      setMeshGeometry(solidMesh, geometryToDraw);
       solidMesh.material.color.setHex(solidColor);
       solidMesh.material.opacity = 0.9;
       solidMesh.material.side = THREE.DoubleSide;
@@ -2097,7 +2313,7 @@ function updateSceneMeshes() {
       wireMesh = new THREE.Mesh(geometryToDraw, material);
       meshGroup.add(wireMesh);
     } else {
-      wireMesh.geometry = geometryToDraw;
+      setMeshGeometry(wireMesh, geometryToDraw);
       wireMesh.material.color.setHex(wireColor);
       wireMesh.material.opacity = wireOpacity;
       wireMesh.material.wireframe = true;
@@ -2204,6 +2420,17 @@ function exportSettings() {
       exportDateTime: new Date().toISOString()
     };
 
+    // IDW control points are resolved at generate time by raycasting against the
+    // loaded mesh, so the same seed on a different model yields different points.
+    // Record what was actually used so the recipe is reproducible.
+    if (currentModelKey === "idw" && idwControlPoints.length > 0) {
+      settingsData.resolvedControlPoints = idwControlPoints.map((p) => ({
+        x: p.x,
+        y: p.y,
+        z: p.z
+      }));
+    }
+
     const jsonString = JSON.stringify(settingsData, null, 2);
     const blob = new Blob([jsonString], { type: "application/json" });
     saveAs(blob, `${currentModelKey}_settings.json`);
@@ -2258,13 +2485,37 @@ function applyImportedSettings(data) {
     }
   }
 
+  // Restore the exact control points the recipe was built with, rather than
+  // regenerating them against whatever mesh is currently loaded.
+  let restoredPoints = 0;
+  if (type === "idw" && Array.isArray(data.resolvedControlPoints)) {
+    const points = data.resolvedControlPoints.filter(
+      (p) =>
+        p &&
+        Number.isFinite(p.x) &&
+        Number.isFinite(p.y) &&
+        Number.isFinite(p.z)
+    );
+    if (points.length > 0) {
+      deformParams.idw.manualPoints = true;
+      deformParams.idw.pointsText = points
+        .map((p) => `${p.x}, ${p.y}, ${p.z}`)
+        .join("\n");
+      idwControlPoints = points.map((p) => ({ x: p.x, y: p.y, z: p.z }));
+      restoredPoints = points.length;
+    }
+  }
+
   const typeRadio = document.querySelector(`input[name="type"][value="${type}"]`);
   if (typeRadio) typeRadio.checked = true;
   currentModelKey = type;
   setupControlPanels();
   syncSettingsUI(type);
 
-  statusDisplay.update(`Imported settings for ${type}. Click 'Generate Deformation' to apply.`, false);
+  const pointNote = restoredPoints
+    ? ` Restored ${restoredPoints} control points.`
+    : "";
+  statusDisplay.update(`Imported settings for ${type}.${pointNote} Click 'Generate Deformation' to apply.`, false);
 }
 
 function syncSettingsUI(type) {
@@ -2311,6 +2562,10 @@ function syncSettingsUI(type) {
     setRange("noiseIntensity", "noiseIntensityVal", params.intensity);
     setRange("noiseScale", "noiseScaleVal", params.scale);
     setSelect("noiseAxis", params.axis);
+    // Settings saved before the Perlin option existed carry no `type`; those
+    // recipes must keep rendering as white noise.
+    setSelect("noiseType", params.type ?? "white");
+    setNumber("noiseSeed", "noiseSeedVal", params.seed ?? 0);
   } else if (type === "sine") {
     setRange("sineAmp", "sineAmpVal", params.amplitude);
     setRange("sineFreq", "sineFreqVal", params.frequency);
@@ -2354,6 +2609,22 @@ function syncSettingsUI(type) {
   } else if (type === "menger") {
     setRange("mengerIterations", "mengerIterationsVal", params.iterations);
     setRange("mengerKeep", "mengerKeepVal", params.keepRatio);
+  } else if (type === "spherize") {
+    setRange("spherizeFactor", "spherizeFactorVal", params.factor);
+    setRange("spherizeRadius", "spherizeRadiusVal", params.radius);
+  } else if (type === "persp") {
+    setRange("perspStrength", "perspStrengthVal", params.strength);
+    setSelect("perspMode", params.mode);
+    setSelect("perspPlane", params.plane);
+    if (params.vpMode !== undefined && params.vpMode !== null) {
+      const vpRadio = document.querySelector(
+        `input[name="vpMode"][value="${params.vpMode}"]`
+      );
+      if (vpRadio) vpRadio.checked = true;
+    }
+    // vp1/vp2 are plain {x,y} objects with no slider; the canvas widget is the
+    // only view of them, so redraw it to reflect the imported coordinates.
+    if (perspCanvasRedraw) perspCanvasRedraw();
   }
 
   const decimate = document.getElementById("decimate");
@@ -2382,6 +2653,8 @@ function noiseShape(geom) {
   const intensity = deformParams.noise.intensity;
   const scale = deformParams.noise.scale;
   const axisMode = deformParams.noise.axis;
+  const noiseType = deformParams.noise.type;
+  noiseSeed = deformParams.noise.seed ?? 0;
   const positionAttribute = geom.getAttribute("position");
   for (let i = 0; i < positionAttribute.count; i++) {
     const x = positionAttribute.getX(i);
@@ -2399,7 +2672,7 @@ function noiseShape(geom) {
     const rz = cz / len;
 
     // Noise value is calculated based on scaled coordinates relative to the object's center
-    const noiseValue = noise(cx * scale, cy * scale, cz * scale);
+    const noiseValue = sampleNoise(noiseType, cx * scale, cy * scale, cz * scale);
     const offset = (noiseValue - 0.5) * 2 * intensity; // Scale noise to (-intensity, +intensity)
 
     let ox = rx * offset;
@@ -2460,7 +2733,6 @@ function pixelateShape(geom) {
     console.warn("Pixelation skipped: empty geometry.");
     return geom;
   }
-  const initialLength = arr.length;
   const allowX = axisMode.includes("x") || axisMode === "all";
   const allowY = axisMode.includes("y") || axisMode === "all";
   const allowZ = axisMode.includes("z") || axisMode === "all";
@@ -2474,7 +2746,7 @@ function pixelateShape(geom) {
   }
   const cleanedPositions = [];
   const epsSq = 1e-10;
-  for (let i = 0; i < initialLength; i += 9) {
+  for (let i = 0; i < arr.length; i += 9) {
     const v0x = arr[i],
       v0y = arr[i + 1],
       v0z = arr[i + 2];
@@ -2503,7 +2775,7 @@ function pixelateShape(geom) {
       cleanedPositions.push(v0x, v0y, v0z, v1x, v1y, v1z, v2x, v2y, v2z);
     }
   }
-  if (cleanedPositions.length && cleanedPositions.length !== initialLength) {
+  if (cleanedPositions.length && cleanedPositions.length !== arr.length) {
     geom.setAttribute(
       "position",
       new THREE.Float32BufferAttribute(cleanedPositions, 3),
@@ -2866,9 +3138,12 @@ function perspVpTo3D(vp, plane) {
   return { x: vp.x, y: vp.y, z: 0 }; // XY default
 }
 
-function perspApplyVP(arr, cx, cy, cz, dir, strength, mode) {
+// Largest absolute projection of any vertex onto `dir`, measured from the
+// centre. This is the normalization basis for the perspective distortion and
+// must always be computed over the entire mesh — see perspApplyVP in worker.js.
+function perspComputeProjMax(arr, cx, cy, cz, dir) {
   const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-  if (len < 1e-6) return;
+  if (len < 1e-6) return 0;
   const nx = dir.x / len, ny = dir.y / len, nz = dir.z / len;
 
   let projMax = 0;
@@ -2876,7 +3151,20 @@ function perspApplyVP(arr, cx, cy, cz, dir, strength, mode) {
     const p = (arr[i] - cx) * nx + (arr[i + 1] - cy) * ny + (arr[i + 2] - cz) * nz;
     if (Math.abs(p) > projMax) projMax = Math.abs(p);
   }
-  if (projMax === 0) return;
+  return projMax;
+}
+
+// Worker twin: perspApplyVP in worker.js. Unlike the worker version this one
+// always sees the whole mesh, so projMax is optional and derived when absent.
+function perspApplyVP(arr, cx, cy, cz, dir, strength, mode, projMax) {
+  const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+  if (len < 1e-6) return;
+  const nx = dir.x / len, ny = dir.y / len, nz = dir.z / len;
+
+  if (projMax === undefined) {
+    projMax = perspComputeProjMax(arr, cx, cy, cz, dir);
+  }
+  if (!projMax) return;
 
   for (let i = 0; i < arr.length; i += 3) {
     const proj = (arr[i] - cx) * nx + (arr[i + 1] - cy) * ny + (arr[i + 2] - cz) * nz;

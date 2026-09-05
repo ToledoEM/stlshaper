@@ -41,7 +41,7 @@ Use deformation to explore how a single object changes under different mathemati
 
 -   **STL Loading**: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).
 -   **Deformation Effects**:
-    -   **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion.
+    -   **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion. Choose white noise for harsh granular static, or Perlin for a coherent field that swells in organic lumps. A seed control varies the pattern without touching the other settings.
     -   **Sine Wave**: Displaces vertices along a sine curve, creating rhythmic ripples across the model.
     -   **Pixelate**: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.
     -   **IDW Shepard**: Multiple control points scattered through the model's interior. Each vertex moves based on distance to those points—closer points pull harder.
@@ -144,9 +144,15 @@ Perspective Distortion simulates the geometric projection of a vanishing point a
 
 ### Noise Controls
 
+-   **Type:** Which noise field drives the displacement.
+    -   *White Noise* — every vertex gets an independent random offset. Harsh and granular; the surface reads as static.
+    -   *Perlin* — a coherent field, so nearby vertices move together. The surface reads as organic lumps and swells rather than grain.
+-   **Seed:** Changes the random pattern without changing any other setting (0 - 10000). Useful for trying variations of the same look.
 -   **Intensity:** Controls the strength of the noise deformation (0.1 - 5.0)
--   **Scale:** Controls the frequency/size of noise features (0.005 - 0.5)
+-   **Scale:** Controls the frequency/size of noise features (0.005 - 0.5). In Perlin mode this sets how large the lumps are — lower values give broader, smoother swells.
 -   **Axis:** Choose which axes to apply noise to (All, X, Y, Z, or combinations)
+
+Settings files saved before the Type control existed load as White Noise, so older recipes keep producing the result they always did.
 
 ### Sine Wave Controls
 
@@ -183,7 +189,7 @@ Perspective Distortion simulates the geometric projection of a vanishing point a
 -   **`index.html`:** The main HTML file that sets up the Three.js scene, UI elements, and event listeners.
 -   **`main.js`:** Core logic for loading the STL, applying deformation, rendering, and UI. Includes Poisson disk sampling, volume detection, and adaptive parameter scaling.
 -   **`worker.js`:** Web Worker for parallel processing of vertex deformations (especially IDW).
--   **`libraries/`:** Three.js, FileSaver.js, and other required libraries.
+-   **`libraries/`:** FileSaver.js, used for the STL download. Three.js and its OrbitControls/STLLoader add-ons are loaded from the jsDelivr CDN in `index.html`.
 
 ## Important Notes
 
