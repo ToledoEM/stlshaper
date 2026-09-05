@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.9.37">
+<meta name="generator" content="quarto-1.10.18">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -12,10 +12,13 @@
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
 */
-code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
@@ -39,10 +42,10 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-f0713a80c085f0d9a0c3bd6e7a074e09.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-03888a1301f94e052e6cf67f4380f44c.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -165,7 +168,7 @@ Note
 <p>This project is under constant development.</p>
 </div>
 </div>
-<p>STLShaper loads STL files and applies mathematical deformations in real-time: noise, sine waves, pixelation, inverse distance weighting, and topology-altering methods like tessellation and Menger sponges. You adjust parameters and export the result. The point is to make your models deliberately weird—unsettling, beautiful, broken.</p>
+<p>STLShaper loads STL files and applies mathematical deformations in real time: noise, sine waves, pixelation, inverse distance weighting, and topology-altering methods like tessellation and Menger sponges. You adjust parameters and export the result. The point is to make your models deliberately weird: unsettling, beautiful, broken.</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -184,34 +187,35 @@ Tip
 <ul>
 <li>Subversion of Form: This project isn’t about perfect realism. It’s about deliberately distorting the familiar, creating unsettling or intriguing shapes.</li>
 <li>Algorithmic Abstraction: Noise, sine waves, and inverse distance weighting deform geometry in predictable and chaotic ways. Noise breaks regularity. Sine waves ripple across surfaces. IDW bends space around control points.</li>
-<li>Visual Metaphors: Consider how different deformations might represent abstract concepts – chaos, tension, growth, decay.</li>
+<li>Visual Metaphors: Consider how different deformations might represent abstract concepts such as chaos, tension, growth, and decay.</li>
 </ul>
 </section>
 <section id="features" class="level2">
 <h2 class="anchored" data-anchor-id="features">Features</h2>
 <ul>
-<li><strong>STL Loading</strong>: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).</li>
+<li><strong>STL Loading</strong>: Loads STL files using the Three.js STLLoader. Start with simple objects (boxes, spheres, basic shapes) to get the basics working.</li>
 <li><strong>Deformation Effects</strong>:
 <ul>
-<li><strong>Noise</strong>: Applies a noise-based deformation, introducing chaotic movement and distortion.</li>
+<li><strong>Noise</strong>: Applies a noise-based deformation, introducing chaotic movement and distortion. Choose white noise for harsh granular static, or Perlin for a coherent field that swells in organic lumps. A seed control varies the pattern without touching the other settings.</li>
 <li><strong>Sine Wave</strong>: Displaces vertices along a sine curve, creating rhythmic ripples across the model.</li>
 <li><strong>Pixelate</strong>: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.</li>
-<li><strong>IDW Shepard</strong>: Multiple control points scattered through the model’s interior. Each vertex moves based on distance to those points—closer points pull harder.</li>
-<li><strong>Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch</strong>: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.</li>
+<li><strong>IDW Shepard</strong>: Multiple control points scattered through the model’s interior. Each vertex moves based on distance to those points, and closer points pull harder.</li>
+<li><strong>Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch</strong>: Surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch stretches the form along an axis.</li>
 <li><strong>Perspective Distortion</strong>: Projects geometry through a configurable vanishing point. An interactive canvas widget lets you drag a dot to set the distortion direction; the center means no effect. Supports 1-point and 2-point modes (second orange dot adds an independent vanishing point), a plane selector (XY / XZ / YZ) to map widget axes to model space, linear and exponential falloff modes, and touch input on mobile.</li>
 <li><strong>Tessellate / Boundary Disruption / Menger Sponge</strong>: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.</li>
 </ul></li>
-<li><strong>Real-time Deformation</strong>: Updates the deformation in real-time, allowing for interactive experimentation.</li>
-<li><strong>Parameter Controls</strong>: Interactive sliders and checkboxes for adjusting deformation parameters.</li>
-<li><strong>Adaptive Parameter Ranges</strong>: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.</li>
-<li><strong>Visual Feedback</strong>: Displays the deformed model in 3D space with control point visualization for IDW deformation.</li>
+<li><strong>Deformation Chaining</strong>: A three-slot bar along the bottom composes up to three deformations in order, each stage working on the previous stage’s output rather than restarting from the original mesh. Chaining is optional. With every slot empty, Generate Deformation behaves exactly as before.</li>
+<li><strong>Real-time Deformation</strong>: Updates the deformation as you change parameters.</li>
+<li><strong>Parameter Controls</strong>: Sliders and checkboxes for adjusting deformation parameters.</li>
+<li><strong>Adaptive Parameter Ranges</strong>: Parameters scale with model size, so an effect looks the same across different STL scales.</li>
+<li><strong>Visual Feedback</strong>: Displays the deformed model in 3D space, with wireframe spheres marking IDW control points.</li>
 <li><strong>Axis Gizmo</strong>: On-screen X/Y/Z labels for orientation.</li>
 <li><strong>Multi-Axis Selection</strong>: Axis-based deformations (twist, bend, ripple, hyper) can target multiple axes.</li>
-<li><strong>Parallel Processing</strong>: Uses Web Workers for efficient processing of large STL files with thousands of vertices.</li>
-<li><strong>Preprocess Options</strong>: Optional cleanup before deformation. Decimate keeps a percentage of triangles (faster but less detail), and Vertex Merge collapses near-identical vertices within an epsilon (reduces duplicates and can stabilize deformations). Not required for most models, but helpful for very dense STLs or when you need faster iteration.</li>
+<li><strong>Parallel Processing</strong>: Uses Web Workers to spread large STL files across cores.</li>
+<li><strong>Preprocess Options</strong>: Optional cleanup before deformation. Decimate keeps a percentage of triangles (faster but less detail), and Vertex Merge collapses near-identical vertices within an epsilon (reduces duplicates and can stabilize deformations). Most models do not need either, but they help with very dense STLs or when you want faster iteration.</li>
 <li><strong>Import/Export Settings</strong>: Reuse deformation presets across STLs; exported settings include preprocess parameters.</li>
 <li><strong>Stats HUD</strong>: Displays vertex/triangle counts and deformation time.</li>
-<li><strong>Export</strong>: Exports the deformed model as an STL file – save your weird creations!</li>
+<li><strong>Export</strong>: Exports the deformed model as an STL file.</li>
 </ul>
 </section>
 <section id="deformation-examples" class="level2">
@@ -255,7 +259,7 @@ Tip
 </section>
 <section id="idw-shepard-deformation" class="level2">
 <h2 class="anchored" data-anchor-id="idw-shepard-deformation">IDW Shepard Deformation</h2>
-<p>Control points pull vertices based on distance. Closer points pull harder. The result: smooth, organic bending without the grid-like feel of axis-based or noise-driven methods.</p>
+<p>Control points pull vertices based on distance, and closer points pull harder. The result bends smoothly, without the grid-like feel of axis-based or noise-driven methods.</p>
 <section id="key-features" class="level3">
 <h3 class="anchored" data-anchor-id="key-features">Key Features</h3>
 <ul>
@@ -275,13 +279,13 @@ Tip
 <li><strong>Multi-Point IDW</strong>: Each vertex is influenced by all control points</li>
 <li><strong>Parallel Processing</strong>: Web Workers handle heavy computation for large meshes</li>
 <li><strong>Real-time Visualization</strong>: Control points scale with model size (5% of largest dimension)</li>
-<li><strong>Robust Volume Detection</strong>: Advanced ray casting ensures points are truly inside the mesh</li>
+<li><strong>Robust Volume Detection</strong>: Ray casting confirms each point sits inside the mesh</li>
 </ul>
 </section>
 </section>
 <section id="perspective-distortion" class="level2">
 <h2 class="anchored" data-anchor-id="perspective-distortion">Perspective Distortion</h2>
-<p>Perspective Distortion simulates the geometric projection of a vanishing point applied directly to mesh vertices — not a camera trick, but an actual vertex transformation.</p>
+<p>The vanishing-point projection is applied directly to mesh vertices. It moves the geometry itself rather than changing the camera.</p>
 <section id="key-features-1" class="level3">
 <h3 class="anchored" data-anchor-id="key-features-1">Key Features</h3>
 <ul>
@@ -339,10 +343,17 @@ Tip
 <section id="noise-controls" class="level3">
 <h3 class="anchored" data-anchor-id="noise-controls">Noise Controls</h3>
 <ul>
+<li><strong>Type:</strong> Which noise field drives the displacement.
+<ul>
+<li><em>White Noise</em>: every vertex gets an independent random offset. Harsh and granular; the surface reads as static.</li>
+<li><em>Perlin</em>: a coherent field, so nearby vertices move together. The surface reads as lumps and swells rather than grain.</li>
+</ul></li>
+<li><strong>Seed:</strong> Changes the random pattern without changing any other setting (0 - 10000). Useful for trying variations of the same look.</li>
 <li><strong>Intensity:</strong> Controls the strength of the noise deformation (0.1 - 5.0)</li>
-<li><strong>Scale:</strong> Controls the frequency/size of noise features (0.005 - 0.5)</li>
+<li><strong>Scale:</strong> Controls the frequency/size of noise features (0.005 - 0.5). In Perlin mode this sets how large the lumps are, and lower values give broader, smoother swells.</li>
 <li><strong>Axis:</strong> Choose which axes to apply noise to (All, X, Y, Z, or combinations)</li>
 </ul>
+<p>Settings files saved before the Type control existed load as White Noise, so older recipes keep producing the result they always did.</p>
 </section>
 <section id="sine-wave-controls" class="level3">
 <h3 class="anchored" data-anchor-id="sine-wave-controls">Sine Wave Controls</h3>
@@ -382,6 +393,20 @@ Tip
 <li><strong>Falloff:</strong> Linear or Exponential</li>
 </ul>
 </section>
+<section id="chain-bar" class="level3">
+<h3 class="anchored" data-anchor-id="chain-bar">Chain Bar</h3>
+<p>The bar along the bottom of the viewport composes up to three deformations, run in order when you click Calculate Output.</p>
+<ul>
+<li><strong>Slot 1 / 2 / 3:</strong> Click a slot to point the parameter panel at it. A filled slot restores its own deformation and settings; the highlighted slot is the active one.</li>
+<li><strong>Set Slot:</strong> Commit the currently selected deformation and its parameters into the active slot. This is the explicit save. Selecting a different slot only reads, it never writes.</li>
+<li><strong>Clear Slot:</strong> Empty the active slot.</li>
+<li><strong>Calculate Output:</strong> Run every filled slot in order. Preprocessing is applied once, before the first stage, so vertex loss does not compound across stages.</li>
+<li><strong>Clear Chain:</strong> Empty all three slots and discard the chain result.</li>
+</ul>
+<p>Order matters: noise-then-twist and twist-then-noise produce different meshes. Stages that depend on the mesh they are given are recomputed per stage. IDW places its control points inside the intermediate geometry, and Perspective recomputes its normalisation against it, which matters in exponential falloff mode where the value does not cancel out.</p>
+<p>Exports name themselves after the whole recipe, so a noise-then-twist chain saves as <code>noise_twist_deformed.stl</code>. Settings exports carry the chain alongside the usual single-deformation fields; a chain recipe re-imports into its slots, while recipes written before chaining still load as a single deformation.</p>
+<p><strong>Triangle budget.</strong> Tessellate multiplies triangles fourfold per step, so three maxed-out Tessellate slots would multiply a mesh by 262,144. A chain projected to exceed 5,000,000 triangles is refused before anything runs, and the message names the slot responsible.</p>
+</section>
 </section>
 <section id="code-structure" class="level2">
 <h2 class="anchored" data-anchor-id="code-structure">Code Structure</h2>
@@ -389,7 +414,7 @@ Tip
 <li><strong><code>index.html</code>:</strong> The main HTML file that sets up the Three.js scene, UI elements, and event listeners.</li>
 <li><strong><code>main.js</code>:</strong> Core logic for loading the STL, applying deformation, rendering, and UI. Includes Poisson disk sampling, volume detection, and adaptive parameter scaling.</li>
 <li><strong><code>worker.js</code>:</strong> Web Worker for parallel processing of vertex deformations (especially IDW).</li>
-<li><strong><code>libraries/</code>:</strong> Three.js, FileSaver.js, and other required libraries.</li>
+<li><strong><code>libraries/</code>:</strong> FileSaver.js, used for the STL download. Three.js and its OrbitControls/STLLoader add-ons are loaded from the jsDelivr CDN in <code>index.html</code>.</li>
 </ul>
 </section>
 <section id="important-notes" class="level2">
@@ -440,7 +465,24 @@ Tip
 <section id="changelog" class="level2">
 <h2 class="anchored" data-anchor-id="changelog">Changelog</h2>
 <section id="section" class="level3">
-<h3 class="anchored" data-anchor-id="section">0.8.0 (2026-05-01)</h3>
+<h3 class="anchored" data-anchor-id="section">0.9.0 (2026-09-05)</h3>
+<ul>
+<li>Added deformation chaining: a three-slot bar composes up to three deformations in order, each stage fed the previous stage’s output</li>
+<li>Added chain recipes to settings files; recipes written before chaining still load as a single deformation</li>
+<li>Added a triangle-count projection that refuses a chain projected to exceed 5,000,000 triangles, naming the slot responsible</li>
+<li>Added a Perlin noise type alongside the original white noise, plus a seed control</li>
+<li>IDW settings exports now record the control points actually used, so a recipe reproduces on re-import</li>
+<li>Added a test suite of 559 tests covering 98% of <code>main.js</code> and 100% of <code>worker.js</code>, with coverage floors enforced in CI</li>
+<li>Split <code>generateCurrent</code> into <code>runDeformation(geometry, key, params)</code>, which takes the geometry to operate on and returns the result</li>
+<li>Fixed Perspective Distortion discontinuities at chunk boundaries in exponential mode; the normalization basis is computed over the whole mesh</li>
+<li>Fixed a failing worker leaving the app stuck on “Processing” forever</li>
+<li>Fixed vertex merge with epsilon 0 collapsing the mesh to a single point</li>
+<li>Fixed binary STL loading producing two normals per vertex, leaving the mesh mis-shaded</li>
+<li>Fixed deformed geometries never being released, leaking GPU memory on each run</li>
+</ul>
+</section>
+<section id="section-1" class="level3">
+<h3 class="anchored" data-anchor-id="section-1">0.8.0 (2026-05-01)</h3>
 <ul>
 <li>Exposed global scene, camera, and renderer for browser console access</li>
 <li>Improved UI/GUI with enhanced styling and layout refinements</li>
@@ -448,8 +490,8 @@ Tip
 <li>Documentation rendering and organization</li>
 </ul>
 </section>
-<section id="section-1" class="level3">
-<h3 class="anchored" data-anchor-id="section-1">0.7.0 (2026-04-21)</h3>
+<section id="section-2" class="level3">
+<h3 class="anchored" data-anchor-id="section-2">0.7.0 (2026-04-21)</h3>
 <ul>
 <li>Added Perspective Distortion deformation with interactive vanishing-point picker widget</li>
 <li>Circle canvas widget with draggable dot to set distortion direction; center = no effect</li>
@@ -459,8 +501,8 @@ Tip
 <li>Touch support for the canvas widget</li>
 </ul>
 </section>
-<section id="section-2" class="level3">
-<h3 class="anchored" data-anchor-id="section-2">0.6.0 (2026-02-10)</h3>
+<section id="section-3" class="level3">
+<h3 class="anchored" data-anchor-id="section-3">0.6.0 (2026-02-10)</h3>
 <ul>
 <li>Added importable deformation settings to reuse presets across STLs</li>
 <li>Added on-screen axis gizmo with X/Y/Z labels</li>
@@ -469,34 +511,34 @@ Tip
 <li>Fixed shading issues by ensuring valid vertex normals, plus assorted robustness fixes</li>
 </ul>
 </section>
-<section id="section-3" class="level3">
-<h3 class="anchored" data-anchor-id="section-3">0.5.0 (2026-02-08)</h3>
+<section id="section-4" class="level3">
+<h3 class="anchored" data-anchor-id="section-4">0.5.0 (2026-02-08)</h3>
 <ul>
 <li>Updated GUI and camera behavior</li>
 <li>Fixed P0, P1, P3, and P4 issue sets</li>
 </ul>
 </section>
-<section id="section-4" class="level3">
-<h3 class="anchored" data-anchor-id="section-4">0.4.0 (2025-10-28)</h3>
+<section id="section-5" class="level3">
+<h3 class="anchored" data-anchor-id="section-5">0.4.0 (2025-10-28)</h3>
 <ul>
 <li>Added settings workflow groundwork and Web Worker processing</li>
 <li>General refinements and cleanup</li>
 </ul>
 </section>
-<section id="section-5" class="level3">
-<h3 class="anchored" data-anchor-id="section-5">0.3.0 (2025-10-27)</h3>
+<section id="section-6" class="level3">
+<h3 class="anchored" data-anchor-id="section-6">0.3.0 (2025-10-27)</h3>
 <ul>
 <li>Initial autoloader workflow</li>
 </ul>
 </section>
-<section id="section-6" class="level3">
-<h3 class="anchored" data-anchor-id="section-6">0.2.0 (2025-10-06)</h3>
+<section id="section-7" class="level3">
+<h3 class="anchored" data-anchor-id="section-7">0.2.0 (2025-10-06)</h3>
 <ul>
 <li>Bug fixes and iterative improvements</li>
 </ul>
 </section>
-<section id="section-7" class="level3">
-<h3 class="anchored" data-anchor-id="section-7">0.1.0 (2025-10-04)</h3>
+<section id="section-8" class="level3">
+<h3 class="anchored" data-anchor-id="section-8">0.1.0 (2025-10-04)</h3>
 <ul>
 <li>Initial project scaffold and documentation</li>
 </ul>
@@ -504,12 +546,7 @@ Tip
 </section>
 <section id="contributing" class="level2">
 <h2 class="anchored" data-anchor-id="contributing">Contributing</h2>
-<p>Feel free to contribute to this project! You can:</p>
-<ul>
-<li>Submit bug reports</li>
-<li>Suggest feature requests</li>
-<li>Create pull requests</li>
-</ul>
+<p>Bug reports, feature requests, and pull requests are welcome.</p>
 </section>
 <section id="license-attributions" class="level2">
 <h2 class="anchored" data-anchor-id="license-attributions">License &amp; Attributions</h2>
@@ -517,15 +554,15 @@ Tip
 <section id="third-party-libraries-resources" class="level3">
 <h3 class="anchored" data-anchor-id="third-party-libraries-resources">Third-Party Libraries &amp; Resources</h3>
 <ul>
-<li><strong>Three.js</strong> (v0.121.1) – <a href="https://github.com/mrdoob/three.js/blob/master/LICENSE">MIT License</a>
+<li><strong>Three.js</strong> (v0.121.1), <a href="https://github.com/mrdoob/three.js/blob/master/LICENSE">MIT License</a>
 <ul>
 <li>3D graphics library for WebGL rendering</li>
 </ul></li>
-<li><strong>Bootstrap Icons</strong> – <a href="https://github.com/twbs/icons/blob/HEAD/LICENSE">MIT License</a>
+<li><strong>Bootstrap Icons</strong>, <a href="https://github.com/twbs/icons/blob/HEAD/LICENSE">MIT License</a>
 <ul>
 <li>Icon library for UI elements (box-arrow-down, box-arrow-in-down, filetype-json, balloon icons)</li>
 </ul></li>
-<li><strong>FileSaver.js</strong> – <a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>
+<li><strong>FileSaver.js</strong>, <a href="https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md">MIT License</a>
 <ul>
 <li>Client-side file download functionality for STL exports</li>
 </ul></li>
@@ -535,7 +572,7 @@ Tip
 <h3 class="anchored" data-anchor-id="sample-stl-models">Sample STL Models</h3>
 <p>Sample 3D models used for testing and demonstration are sourced from:</p>
 <ul>
-<li><strong>NIH 3D Print Exchange</strong> – <a href="https://3dprint.nih.gov/">Public Domain</a>
+<li><strong>NIH 3D Print Exchange</strong>, <a href="https://3dprint.nih.gov/">Public Domain</a>
 <ul>
 <li>Freely available biomedical 3D models for non-commercial use and research</li>
 </ul></li>

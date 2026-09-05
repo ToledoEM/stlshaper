@@ -1,7 +1,16 @@
 // STL Deformation Worker
 // Handles parallel vertex deformation processing
+//
+// Every function below has a twin in main.js implementing the same algorithm
+// against THREE.BufferGeometry instead of a flat Float32Array. The two are NOT
+// linked at runtime — a change to one must be mirrored by hand in the other, or
+// the worker path and the fallback path silently diverge.
+//
+// Worker functions receive `params` explicitly; their main.js twins for
+// noise/sine/pixel/spherize/persp read the deformParams global instead.
 
 // --- Placeholder Noise Function (Required for "noiseShape" deformation) ---
+// Twin: simpleHash / noise in main.js
 let noiseSeed = 0;
 function simpleHash(x, y, z) {
   let h = 17 + 31 * noiseSeed;
@@ -15,8 +24,89 @@ function noise(x, y, z) {
   return simpleHash(Math.floor(x * 10), Math.floor(y * 10), Math.floor(z * 10));
 }
 
+// --- Coherent Value Noise ---
+// Twin: perlin* helpers in main.js — keep both copies identical.
+// Gradient-free value noise: hash the eight corners of the containing lattice
+// cell and blend them with a quintic fade. Unlike simpleHash above, nearby
+// points return nearby values, which is what makes the displacement read as
+// lumps rather than static. Returns 0-1.
+function perlinFade(t) {
+  return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+function perlinLatticeValue(ix, iy, iz) {
+  // Use Math.imul and unsigned shifts throughout: plain `*` overflows past 2^53
+  // and a signed `>>` biases the result low (it capped the output at 0.5).
+  let h = Math.imul(ix, 374761393) ^ Math.imul(iy, 668265263) ^
+          Math.imul(iz, 1274126177) ^ Math.imul(noiseSeed, 971);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967295;
+}
+
+function perlinNoise(x, y, z) {
+  const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z);
+  const fx = perlinFade(x - x0);
+  const fy = perlinFade(y - y0);
+  const fz = perlinFade(z - z0);
+
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  const c000 = perlinLatticeValue(x0, y0, z0);
+  const c100 = perlinLatticeValue(x0 + 1, y0, z0);
+  const c010 = perlinLatticeValue(x0, y0 + 1, z0);
+  const c110 = perlinLatticeValue(x0 + 1, y0 + 1, z0);
+  const c001 = perlinLatticeValue(x0, y0, z0 + 1);
+  const c101 = perlinLatticeValue(x0 + 1, y0, z0 + 1);
+  const c011 = perlinLatticeValue(x0, y0 + 1, z0 + 1);
+  const c111 = perlinLatticeValue(x0 + 1, y0 + 1, z0 + 1);
+
+  const x00 = lerp(c000, c100, fx);
+  const x10 = lerp(c010, c110, fx);
+  const x01 = lerp(c001, c101, fx);
+  const x11 = lerp(c011, c111, fx);
+
+  return lerp(lerp(x00, x10, fy), lerp(x01, x11, fy), fz);
+}
+
+// A single octave of value noise spans only part of 0-1, so it would feel far
+// weaker than white noise at the same intensity. Summing octaves and stretching
+// the result about its midpoint fixes that, keeping the intensity slider
+// meaningful in either mode.
+const PERLIN_OCTAVES = 4;
+const PERLIN_LACUNARITY = 2.0;
+const PERLIN_GAIN = 0.5;
+// The scale slider already sets feature size; this only lifts its 0.005-0.5
+// range into one where a unit lattice gives visible lumps rather than a single
+// flat cell. Keep it low, or neighbouring vertices land in different cells and
+// the result degenerates back into static.
+const PERLIN_FREQUENCY = 1.0;
+const PERLIN_CONTRAST = 2.77; // measured: lifts 4-octave sd 0.127 to ~0.35
+
+function perlinFractal(x, y, z) {
+  let amplitude = 1;
+  let frequency = PERLIN_FREQUENCY;
+  let sum = 0;
+  let totalAmplitude = 0;
+  for (let i = 0; i < PERLIN_OCTAVES; i++) {
+    sum += perlinNoise(x * frequency, y * frequency, z * frequency) * amplitude;
+    totalAmplitude += amplitude;
+    amplitude *= PERLIN_GAIN;
+    frequency *= PERLIN_LACUNARITY;
+  }
+  const normalized = sum / totalAmplitude; // 0-1, centred near 0.5
+  return Math.max(0, Math.min(1, (normalized - 0.5) * PERLIN_CONTRAST + 0.5));
+}
+
+// Dispatches on the noise type chosen in the UI. `type` is absent in settings
+// files saved before the option existed, so it must default to white.
+function sampleNoise(type, x, y, z) {
+  return type === "perlin" ? perlinFractal(x, y, z) : noise(x, y, z);
+}
+
 // --- Deformation Functions (Worker-compatible versions) ---
 
+// Twin: getAxisList in main.js — keep both copies identical.
 function getAxisList(axisParam) {
   const axis = axisParam || "y";
   if (axis === "all") return ["x", "y", "z"];
@@ -28,32 +118,20 @@ function getAxisList(axisParam) {
 }
 
 function noiseShape(vertices, params, bbox) {
-  // Compute center defensively: the `bbox` received via postMessage is a plain object
-  // (structured clone) and may not have Box3 methods. Handle both cases.
-  let center = { x: 0, y: 0, z: 0 };
-  if (bbox) {
-    if (typeof bbox.getCenter === 'function') {
-      // If bbox is a Box3-like object with method, use it
-      try {
-        const temp = bbox.getCenter();
-        center.x = temp.x;
-        center.y = temp.y;
-        center.z = temp.z;
-      } catch (err) {
-        // Fall through to manual computation
-      }
-    }
-    // If min/max exist as plain objects, compute center manually
-    if (bbox.min && bbox.max) {
-      center.x = (bbox.min.x + bbox.max.x) * 0.5;
-      center.y = (bbox.min.y + bbox.max.y) * 0.5;
-      center.z = (bbox.min.z + bbox.max.z) * 0.5;
-    }
+  // `bbox` arrives via postMessage as a structured clone: a plain object with
+  // min/max but no Box3 methods. Always compute the center manually.
+  const center = { x: 0, y: 0, z: 0 };
+  if (bbox && bbox.min && bbox.max) {
+    center.x = (bbox.min.x + bbox.max.x) * 0.5;
+    center.y = (bbox.min.y + bbox.max.y) * 0.5;
+    center.z = (bbox.min.z + bbox.max.z) * 0.5;
   }
 
   const intensity = params.intensity;
   const scale = params.scale;
   const axisMode = params.axis;
+  const noiseType = params.type;
+  noiseSeed = params.seed ?? 0;
 
   for (let i = 0; i < vertices.length; i += 3) {
     const x = vertices[i];
@@ -71,7 +149,7 @@ function noiseShape(vertices, params, bbox) {
     const rz = cz / len;
 
     // Noise value is calculated based on scaled coordinates relative to the object's center
-    const noiseValue = noise(cx * scale, cy * scale, cz * scale);
+    const noiseValue = sampleNoise(noiseType, cx * scale, cy * scale, cz * scale);
     const offset = (noiseValue - 0.5) * 2 * intensity; // Scale noise to (-intensity, +intensity)
 
     let ox = rx * offset;
@@ -423,17 +501,17 @@ function perspVpTo3D(vp, plane) {
   return { x: vp.x, y: vp.y, z: 0 };
 }
 
-function perspApplyVP(vertices, cx, cy, cz, dir, strength, mode) {
+// `projMax` MUST be supplied by the caller, computed over the whole mesh. This
+// function only ever sees one chunk, so deriving it here would normalize each
+// chunk against its own local maximum. In exponential mode that produces
+// visible seams at chunk boundaries (in linear mode the factor cancels out).
+// Main-thread twin: perspApplyVP in main.js.
+function perspApplyVP(vertices, cx, cy, cz, dir, strength, mode, projMax) {
   const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
   if (len < 1e-6) return;
   const nx = dir.x / len, ny = dir.y / len, nz = dir.z / len;
 
-  let projMax = 0;
-  for (let i = 0; i < vertices.length; i += 3) {
-    const p = (vertices[i] - cx) * nx + (vertices[i + 1] - cy) * ny + (vertices[i + 2] - cz) * nz;
-    if (Math.abs(p) > projMax) projMax = Math.abs(p);
-  }
-  if (projMax === 0) return;
+  if (!projMax) return;
 
   for (let i = 0; i < vertices.length; i += 3) {
     const proj = (vertices[i] - cx) * nx + (vertices[i + 1] - cy) * ny + (vertices[i + 2] - cz) * nz;
@@ -457,16 +535,20 @@ function perspShape(vertices, params, bbox) {
   const cy = (bbox.min.y + bbox.max.y) * 0.5;
   const cz = (bbox.min.z + bbox.max.z) * 0.5;
 
-  perspApplyVP(vertices, cx, cy, cz, perspVpTo3D(vp1, plane), strength, mode);
+  // Computed on the main thread over the full mesh and passed in; see the note
+  // on perspApplyVP for why this cannot be derived from a chunk.
+  perspApplyVP(vertices, cx, cy, cz, perspVpTo3D(vp1, plane), strength, mode, params.projMax1);
   if (vpMode === 2) {
-    perspApplyVP(vertices, cx, cy, cz, perspVpTo3D(vp2, plane), strength, mode);
+    perspApplyVP(vertices, cx, cy, cz, perspVpTo3D(vp2, plane), strength, mode, params.projMax2);
   }
   return vertices;
 }
 
 // --- Worker Message Handling ---
 
-self.onmessage = function(e) {
+// Named rather than inlined into the onmessage assignment so tests can drive
+// the dispatch directly, without a Worker host.
+function handleMessage(e) {
   const { type, deformationType, params, vertices, bbox, chunkId, workerId } = e.data;
 
   if (type === 'deform') {
@@ -535,36 +617,40 @@ self.onmessage = function(e) {
       });
     }
   }
-};
-
-// Import THREE.js Vector3 and Box3 for worker context
-// Note: In a real implementation, you'd need to include THREE.js in the worker
-// For now, we'll use simple vector math
-function Vector3(x, y, z) {
-  this.x = x || 0;
-  this.y = y || 0;
-  this.z = z || 0;
 }
 
-Vector3.prototype.set = function(x, y, z) {
-  this.x = x;
-  this.y = y;
-  this.z = z;
-  return this;
-};
-
-function Box3(min, max) {
-  this.min = min || new Vector3(Infinity, Infinity, Infinity);
-  this.max = max || new Vector3(-Infinity, -Infinity, -Infinity);
+// Only bind inside a real Worker. Importing this module for tests must not
+// register a handler, and `self` is absent (or not a Worker scope) under Node.
+if (typeof self !== "undefined" && typeof self.postMessage === "function") {
+  self.onmessage = handleMessage;
 }
 
-Box3.prototype.getCenter = function(target) {
-  if (!target) target = new Vector3();
-  target.x = (this.min.x + this.max.x) * 0.5;
-  target.y = (this.min.y + this.max.y) * 0.5;
-  target.z = (this.min.z + this.max.z) * 0.5;
-  return target;
+export {
+  handleMessage,
+  // Noise
+  simpleHash,
+  noise,
+  perlinFade,
+  perlinLatticeValue,
+  perlinNoise,
+  perlinFractal,
+  sampleNoise,
+  // Helpers
+  getAxisList,
+  // Deformations
+  noiseShape,
+  sineDeformShape,
+  pixelateShape,
+  idwShape,
+  inflateShape,
+  twistShape,
+  bendShape,
+  rippleShape,
+  warpShape,
+  hyperShape,
+  boundaryDisruptShape,
+  spherizeShape,
+  perspVpTo3D,
+  perspApplyVP,
+  perspShape,
 };
-
-// Make available globally
-self.THREE = { Vector3: Vector3, Box3: Box3 };

@@ -1,0 +1,24 @@
+# Targets match the floors in vitest.config.js. `threshold` is the drop
+# tolerated before a build is marked failed, not a target of its own.
+coverage:
+  status:
+    project:
+      default:
+        target: 98%
+        threshold: 0.5%
+    patch:
+      default:
+        target: 90%
+        threshold: 5%
+
+comment:
+  layout: "reach, diff, files"
+  require_changes: true
+
+ignore:
+  - "libraries/**"      # vendored third-party
+  - "_site/**"          # generated documentation output
+  - "site_libs/**"
+  - "documentation_files/**"
+  - "scripts/**"
+  - "tests/**"
