@@ -1,5 +1,13 @@
 # STLShaper ~ Subversion of Form
-Version: 0.7.0 (2026-04-21)
+
+[![CI](https://github.com/ToledoEM/stlShaper/actions/workflows/ci.yml/badge.svg)](https://github.com/ToledoEM/stlShaper/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ToledoEM/stlShaper/branch/main/graph/badge.svg)](https://codecov.io/gh/ToledoEM/stlShaper)
+![Version](https://img.shields.io/badge/version-0.9.0-blue)
+![Three.js](https://img.shields.io/badge/three.js-r121-black)
+![No Build](https://img.shields.io/badge/build-none-brightgreen)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Version: 0.9.0 (2026-09-05)
 
 
 **This is under constant development and may change at any time :-)** 
@@ -21,13 +29,14 @@ STLShaper loads STL files and applies mathematical deformations: noise, sine wav
 
 - **STL Loading**: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).
 - **Deformation Effects**:
-  - **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion.
+  - **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion. Choose white noise for harsh granular static, or Perlin for a coherent field that swells in organic lumps. A seed control varies the pattern without touching the other settings.
   - **Sine Wave**: Displaces vertices along a sine curve, creating rhythmic ripples across the model.
   - **Pixelate**: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.
   - **IDW Shepard**: Multiple control points scattered through the model's interior. Each vertex moves based on distance to those points—closer points pull harder.
   - **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.
   - **Tessellate / Boundary Disruption / Menger Sponge**: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.
   - **Perspective Distortion**: Directional fisheye/barrel distortion controlled by an interactive circle widget. Drag the dot toward any direction to stretch vertices that way; center dot = no effect. Supports 1-point and 2-point vanishing modes, plane selector (XY/XZ/YZ), strength slider, and linear or exponential falloff.
+- **Deformation Chaining**: A three-slot bar along the bottom composes up to three deformations in order. Each stage works on the previous stage's output rather than restarting from the original mesh, so noise-then-twist is a different result than twist-then-noise. Chaining is optional — with every slot empty, Generate Deformation behaves exactly as before.
 - **Real-time Deformation**: Updates the deformation in real-time, allowing for interactive experimentation.
 - **Parameter Controls**: Interactive sliders and checkboxes for adjusting deformation parameters.
 - **Adaptive Parameter Ranges**: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.
@@ -154,12 +163,33 @@ You can use STLShaper in either of these ways:
 *   **Generate Deformation:** Apply the deformation.
 *   **Export Current STL:** Export the deformed model.
 
+### Chain Bar
+
+The bar along the bottom of the viewport composes up to three deformations, run
+in order when you click Calculate Output.
+
+*   **Slot 1 / 2 / 3:** Click a slot to point the parameter panel at it. A filled slot restores its own deformation and settings; the highlighted slot is the active one.
+*   **Set Slot:** Commit the currently selected deformation and its parameters into the active slot. This is the explicit save — selecting a different slot only reads, it never writes.
+*   **Clear Slot:** Empty the active slot.
+*   **Calculate Output:** Run every filled slot in order, each stage fed the previous stage's output. Preprocessing (decimate, vertex merge) is applied once, before the first stage, so vertex loss does not compound.
+*   **Clear Chain:** Empty all three slots and discard the chain result.
+
+Exports name themselves after the whole recipe — a noise-then-twist chain saves
+as `noise_twist_deformed.stl`. Settings exports carry the chain alongside the
+usual single-deformation fields, so a chain recipe re-imports into its slots
+while older recipes still load as a single deformation.
+
+**Triangle budget.** Tessellate multiplies triangles fourfold per step, so three
+maxed-out Tessellate slots would multiply a mesh by 262,144. A chain projected to
+exceed 5,000,000 triangles is refused before anything runs, and the message names
+the slot responsible.
+
 ## Code Structure
 
 *   **`index.html`:**  The main HTML file that sets up the Three.js scene, UI elements, and event listeners.
 *   **`main.js`:**  Contains the core logic for loading the STL, applying the deformation, rendering the model, and handling user interactions. Includes Poisson disk sampling, volume detection, and adaptive parameter scaling.
 *   **`worker.js`:** Web Worker for parallel processing of vertex deformations, especially important for IDW with multiple control points.
-*   **`libraries/`:** Contains Three.js, p5.js, and other required libraries.
+*   **`libraries/`:** FileSaver.js, used for the STL download. Three.js and its OrbitControls/STLLoader add-ons are loaded from the jsDelivr CDN in `index.html`.
 
 ## Performance & Technical Notes
 

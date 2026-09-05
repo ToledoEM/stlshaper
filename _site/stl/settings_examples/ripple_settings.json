@@ -1,0 +1,14 @@
+{
+  "originalFileName": "3dbenchy.stl",
+  "deformationType": "ripple",
+  "settings": {
+    "amplitude": 4,
+    "frequency": 0.3,
+    "axis": "y"
+  },
+  "preprocess": {
+    "decimate": 100,
+    "mergeEpsilon": 0
+  },
+  "exportDateTime": "2026-05-01T21:08:32.882Z"
+}

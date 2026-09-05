@@ -1,0 +1,13 @@
+{
+  "originalFileName": "3dbenchy.stl",
+  "deformationType": "pixel",
+  "settings": {
+    "size": 1.5,
+    "axis": "all"
+  },
+  "preprocess": {
+    "decimate": 100,
+    "mergeEpsilon": 0
+  },
+  "exportDateTime": "2026-05-01T21:08:55.803Z"
+}

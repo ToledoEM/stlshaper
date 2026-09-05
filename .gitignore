@@ -16,8 +16,24 @@
 dist/
 build/
 
+# Test tooling
+node_modules/
+coverage/
+.vitest/
+
 # Quarto
+# NOTE: _quarto.yaml is deliberately NOT ignored — it is the build's input
+# config and the publish workflow cannot render without it.
 /.quarto/
 **/*.quarto_ipynb
 documentation_files/
-_quarto.yaml
+
+
+
+# Local build helper
+render.sh
+
+# Agent tooling and local notes (never publish)
+CLAUDE.md
+CLAUDE-*.md
+.claude/

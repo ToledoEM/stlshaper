@@ -1,0 +1,51 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - documentation.qmd
+  # The app itself is not rendered by Quarto, but it must land in _site or the
+  # deployed index.html loads a page whose scripts 404.
+  resources:
+    - index.html
+    - main.js
+    - worker.js
+    - libraries/
+    - img/
+    # The default model the app auto-loads. stl/ itself is 54 MB of sample
+    # output that nothing references, so it is deliberately not deployed.
+    - JustBones617_0_resaved_1_NIH3D.stl
+    - stl/settings_examples/
+
+site-url: "https://toledoem.github.io/stlShaper/"
+
+website:
+  title: "STLShaper - 3D Mesh Deformation"
+  navbar:
+    background: primary
+    title: "STLShaper"
+    left:
+      - text: "Documentation"
+        href: documentation.qmd
+    right:
+      - icon: github
+        href: "https://github.com/ToledoEM/stlShaper"
+        aria-label: "GitHub repository"
+  page-footer:
+    left: "MIT License · [ToledoEM](https://github.com/ToledoEM)"
+    right: "Built with [Quarto](https://quarto.org)"
+
+format:
+  html:
+    theme: flatly
+    css: documentation-styles.css
+    toc: true
+    toc-location: left
+    toc-depth: 3
+    toc-expand: 2
+    smooth-scroll: true
+    anchor-sections: true
+    code-copy: true
+    include-in-header:
+      text: |
+        <script data-goatcounter="https://etoledo.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>

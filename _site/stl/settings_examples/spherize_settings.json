@@ -1,0 +1,13 @@
+{
+  "originalFileName": "3dbenchy.stl",
+  "deformationType": "spherize",
+  "settings": {
+    "factor": 0.4,
+    "radius": 0
+  },
+  "preprocess": {
+    "decimate": 100,
+    "mergeEpsilon": 0
+  },
+  "exportDateTime": "2026-05-01T21:11:11.754Z"
+}

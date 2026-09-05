@@ -25,7 +25,7 @@ format:
 This project is under constant development.
 :::
 
-STLShaper loads STL files and applies mathematical deformations in real-time: noise, sine waves, pixelation, inverse distance weighting, and topology-altering methods like tessellation and Menger sponges. You adjust parameters and export the result. The point is to make your models deliberately weird—unsettling, beautiful, broken.
+STLShaper loads STL files and applies mathematical deformations in real time: noise, sine waves, pixelation, inverse distance weighting, and topology-altering methods like tessellation and Menger sponges. You adjust parameters and export the result. The point is to make your models deliberately weird: unsettling, beautiful, broken.
 
 ::: callout-tip
 Use deformation to explore how a single object changes under different mathematical rules. What does your model look like if you apply noise? Sine waves? A Menger sponge carved through it? Save the weird ones.
@@ -35,30 +35,31 @@ Use deformation to explore how a single object changes under different mathemati
 
 -   Subversion of Form: This project isn't about perfect realism. It's about deliberately distorting the familiar, creating unsettling or intriguing shapes.
 -   Algorithmic Abstraction: Noise, sine waves, and inverse distance weighting deform geometry in predictable and chaotic ways. Noise breaks regularity. Sine waves ripple across surfaces. IDW bends space around control points.
--   Visual Metaphors: Consider how different deformations might represent abstract concepts – chaos, tension, growth, decay.
+-   Visual Metaphors: Consider how different deformations might represent abstract concepts such as chaos, tension, growth, and decay.
 
 ## Features
 
--   **STL Loading**: Loads STL files using the Three.js STLLoader. (Start with simple objects – boxes, spheres, basic shapes – to get the basics working).
+-   **STL Loading**: Loads STL files using the Three.js STLLoader. Start with simple objects (boxes, spheres, basic shapes) to get the basics working.
 -   **Deformation Effects**:
-    -   **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion.
+    -   **Noise**: Applies a noise-based deformation, introducing chaotic movement and distortion. Choose white noise for harsh granular static, or Perlin for a coherent field that swells in organic lumps. A seed control varies the pattern without touching the other settings.
     -   **Sine Wave**: Displaces vertices along a sine curve, creating rhythmic ripples across the model.
     -   **Pixelate**: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.
-    -   **IDW Shepard**: Multiple control points scattered through the model's interior. Each vertex moves based on distance to those points—closer points pull harder.
-    -   **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.
+    -   **IDW Shepard**: Multiple control points scattered through the model's interior. Each vertex moves based on distance to those points, and closer points pull harder.
+    -   **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: Surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch stretches the form along an axis.
     -   **Perspective Distortion**: Projects geometry through a configurable vanishing point. An interactive canvas widget lets you drag a dot to set the distortion direction; the center means no effect. Supports 1-point and 2-point modes (second orange dot adds an independent vanishing point), a plane selector (XY / XZ / YZ) to map widget axes to model space, linear and exponential falloff modes, and touch input on mobile.
     -   **Tessellate / Boundary Disruption / Menger Sponge**: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.
--   **Real-time Deformation**: Updates the deformation in real-time, allowing for interactive experimentation.
--   **Parameter Controls**: Interactive sliders and checkboxes for adjusting deformation parameters.
--   **Adaptive Parameter Ranges**: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.
--   **Visual Feedback**: Displays the deformed model in 3D space with control point visualization for IDW deformation.
+-   **Deformation Chaining**: A three-slot bar along the bottom composes up to three deformations in order, each stage working on the previous stage's output rather than restarting from the original mesh. Chaining is optional. With every slot empty, Generate Deformation behaves exactly as before.
+-   **Real-time Deformation**: Updates the deformation as you change parameters.
+-   **Parameter Controls**: Sliders and checkboxes for adjusting deformation parameters.
+-   **Adaptive Parameter Ranges**: Parameters scale with model size, so an effect looks the same across different STL scales.
+-   **Visual Feedback**: Displays the deformed model in 3D space, with wireframe spheres marking IDW control points.
 -   **Axis Gizmo**: On-screen X/Y/Z labels for orientation.
 -   **Multi-Axis Selection**: Axis-based deformations (twist, bend, ripple, hyper) can target multiple axes.
--   **Parallel Processing**: Uses Web Workers for efficient processing of large STL files with thousands of vertices.
--   **Preprocess Options**: Optional cleanup before deformation. Decimate keeps a percentage of triangles (faster but less detail), and Vertex Merge collapses near-identical vertices within an epsilon (reduces duplicates and can stabilize deformations). Not required for most models, but helpful for very dense STLs or when you need faster iteration.
+-   **Parallel Processing**: Uses Web Workers to spread large STL files across cores.
+-   **Preprocess Options**: Optional cleanup before deformation. Decimate keeps a percentage of triangles (faster but less detail), and Vertex Merge collapses near-identical vertices within an epsilon (reduces duplicates and can stabilize deformations). Most models do not need either, but they help with very dense STLs or when you want faster iteration.
 -   **Import/Export Settings**: Reuse deformation presets across STLs; exported settings include preprocess parameters.
 -   **Stats HUD**: Displays vertex/triangle counts and deformation time.
--   **Export**: Exports the deformed model as an STL file – save your weird creations!
+-   **Export**: Exports the deformed model as an STL file.
 
 ## Deformation Examples
 
@@ -76,7 +77,7 @@ Use deformation to explore how a single object changes under different mathemati
 
 ## IDW Shepard Deformation
 
-Control points pull vertices based on distance. Closer points pull harder. The result: smooth, organic bending without the grid-like feel of axis-based or noise-driven methods.
+Control points pull vertices based on distance, and closer points pull harder. The result bends smoothly, without the grid-like feel of axis-based or noise-driven methods.
 
 ### Key Features
 
@@ -94,11 +95,11 @@ Control points pull vertices based on distance. Closer points pull harder. The r
 -   **Multi-Point IDW**: Each vertex is influenced by all control points
 -   **Parallel Processing**: Web Workers handle heavy computation for large meshes
 -   **Real-time Visualization**: Control points scale with model size (5% of largest dimension)
--   **Robust Volume Detection**: Advanced ray casting ensures points are truly inside the mesh
+-   **Robust Volume Detection**: Ray casting confirms each point sits inside the mesh
 
 ## Perspective Distortion
 
-Perspective Distortion simulates the geometric projection of a vanishing point applied directly to mesh vertices — not a camera trick, but an actual vertex transformation.
+The vanishing-point projection is applied directly to mesh vertices. It moves the geometry itself rather than changing the camera.
 
 ### Key Features
 
@@ -144,9 +145,15 @@ Perspective Distortion simulates the geometric projection of a vanishing point a
 
 ### Noise Controls
 
+-   **Type:** Which noise field drives the displacement.
+    -   *White Noise*: every vertex gets an independent random offset. Harsh and granular; the surface reads as static.
+    -   *Perlin*: a coherent field, so nearby vertices move together. The surface reads as lumps and swells rather than grain.
+-   **Seed:** Changes the random pattern without changing any other setting (0 - 10000). Useful for trying variations of the same look.
 -   **Intensity:** Controls the strength of the noise deformation (0.1 - 5.0)
--   **Scale:** Controls the frequency/size of noise features (0.005 - 0.5)
+-   **Scale:** Controls the frequency/size of noise features (0.005 - 0.5). In Perlin mode this sets how large the lumps are, and lower values give broader, smoother swells.
 -   **Axis:** Choose which axes to apply noise to (All, X, Y, Z, or combinations)
+
+Settings files saved before the Type control existed load as White Noise, so older recipes keep producing the result they always did.
 
 ### Sine Wave Controls
 
@@ -178,12 +185,28 @@ Perspective Distortion simulates the geometric projection of a vanishing point a
 -   **Strength:** Overall distortion magnitude
 -   **Falloff:** Linear or Exponential
 
+### Chain Bar
+
+The bar along the bottom of the viewport composes up to three deformations, run in order when you click Calculate Output.
+
+-   **Slot 1 / 2 / 3:** Click a slot to point the parameter panel at it. A filled slot restores its own deformation and settings; the highlighted slot is the active one.
+-   **Set Slot:** Commit the currently selected deformation and its parameters into the active slot. This is the explicit save. Selecting a different slot only reads, it never writes.
+-   **Clear Slot:** Empty the active slot.
+-   **Calculate Output:** Run every filled slot in order. Preprocessing is applied once, before the first stage, so vertex loss does not compound across stages.
+-   **Clear Chain:** Empty all three slots and discard the chain result.
+
+Order matters: noise-then-twist and twist-then-noise produce different meshes. Stages that depend on the mesh they are given are recomputed per stage. IDW places its control points inside the intermediate geometry, and Perspective recomputes its normalisation against it, which matters in exponential falloff mode where the value does not cancel out.
+
+Exports name themselves after the whole recipe, so a noise-then-twist chain saves as `noise_twist_deformed.stl`. Settings exports carry the chain alongside the usual single-deformation fields; a chain recipe re-imports into its slots, while recipes written before chaining still load as a single deformation.
+
+**Triangle budget.** Tessellate multiplies triangles fourfold per step, so three maxed-out Tessellate slots would multiply a mesh by 262,144. A chain projected to exceed 5,000,000 triangles is refused before anything runs, and the message names the slot responsible.
+
 ## Code Structure
 
 -   **`index.html`:** The main HTML file that sets up the Three.js scene, UI elements, and event listeners.
 -   **`main.js`:** Core logic for loading the STL, applying deformation, rendering, and UI. Includes Poisson disk sampling, volume detection, and adaptive parameter scaling.
 -   **`worker.js`:** Web Worker for parallel processing of vertex deformations (especially IDW).
--   **`libraries/`:** Three.js, FileSaver.js, and other required libraries.
+-   **`libraries/`:** FileSaver.js, used for the STL download. Three.js and its OrbitControls/STLLoader add-ons are loaded from the jsDelivr CDN in `index.html`.
 
 ## Important Notes
 
@@ -212,6 +235,21 @@ After deformation, you may need to repair the mesh in Meshlab. Use these filters
 -   Some STLs may require normal regeneration to avoid black/incorrect shading (handled in recent builds).
 
 ## Changelog
+
+### 0.9.0 (2026-09-05)
+
+-   Added deformation chaining: a three-slot bar composes up to three deformations in order, each stage fed the previous stage's output
+-   Added chain recipes to settings files; recipes written before chaining still load as a single deformation
+-   Added a triangle-count projection that refuses a chain projected to exceed 5,000,000 triangles, naming the slot responsible
+-   Added a Perlin noise type alongside the original white noise, plus a seed control
+-   IDW settings exports now record the control points actually used, so a recipe reproduces on re-import
+-   Added a test suite of 559 tests covering 98% of `main.js` and 100% of `worker.js`, with coverage floors enforced in CI
+-   Split `generateCurrent` into `runDeformation(geometry, key, params)`, which takes the geometry to operate on and returns the result
+-   Fixed Perspective Distortion discontinuities at chunk boundaries in exponential mode; the normalization basis is computed over the whole mesh
+-   Fixed a failing worker leaving the app stuck on "Processing" forever
+-   Fixed vertex merge with epsilon 0 collapsing the mesh to a single point
+-   Fixed binary STL loading producing two normals per vertex, leaving the mesh mis-shaded
+-   Fixed deformed geometries never being released, leaking GPU memory on each run
 
 ### 0.8.0 (2026-05-01)
 
@@ -261,11 +299,7 @@ After deformation, you may need to repair the mesh in Meshlab. Use these filters
 
 ## Contributing
 
-Feel free to contribute to this project! You can:
-
--   Submit bug reports
--   Suggest feature requests
--   Create pull requests
+Bug reports, feature requests, and pull requests are welcome.
 
 ## License & Attributions
 
@@ -273,20 +307,20 @@ Feel free to contribute to this project! You can:
 
 ### Third-Party Libraries & Resources
 
--   **Three.js** (v0.121.1) – [MIT License](https://github.com/mrdoob/three.js/blob/master/LICENSE)
+-   **Three.js** (v0.121.1), [MIT License](https://github.com/mrdoob/three.js/blob/master/LICENSE)
     -   3D graphics library for WebGL rendering
 
--   **Bootstrap Icons** – [MIT License](https://github.com/twbs/icons/blob/HEAD/LICENSE)
+-   **Bootstrap Icons**, [MIT License](https://github.com/twbs/icons/blob/HEAD/LICENSE)
     -   Icon library for UI elements (box-arrow-down, box-arrow-in-down, filetype-json, balloon icons)
 
--   **FileSaver.js** – [MIT License](https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md)
+-   **FileSaver.js**, [MIT License](https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md)
     -   Client-side file download functionality for STL exports
 
 ### Sample STL Models
 
 Sample 3D models used for testing and demonstration are sourced from:
 
--   **NIH 3D Print Exchange** – [Public Domain](https://3dprint.nih.gov/)
+-   **NIH 3D Print Exchange**, [Public Domain](https://3dprint.nih.gov/)
     -   Freely available biomedical 3D models for non-commercial use and research
 
 ### Attribution

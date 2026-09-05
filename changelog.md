@@ -2,6 +2,75 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-09-05
+### Added
+- Deformation chaining: a three-slot bar along the bottom of the viewport
+  composes up to three deformations in order, each stage fed the previous
+  stage's output instead of restarting from the original mesh. Click a slot to
+  point the existing parameter panel at it, *Set Slot* to commit the current
+  deformation and settings, *Calculate Output* to run the chain.
+- Chain recipes in settings files: exports gain a `chain` array and imports fill
+  the slots from it. Files written before chaining still load as a single
+  deformation, and a chain file also carries the single-deformation fields so it
+  degrades gracefully in older builds.
+- A triangle-count projection that refuses to run a chain whose output would
+  exceed 5,000,000 triangles, naming the slot responsible. Tessellate multiplies
+  triangles fourfold per step, so three maxed-out slots would otherwise multiply
+  the mesh by 262,144 and take the tab down.
+- Test suite: 559 tests via Vitest and jsdom, covering 98% of `main.js` and
+  100% of `worker.js`, with coverage reported to Codecov and floors enforced in
+  `vitest.config.js` so a regression fails the build.
+- Regression tests for every defect fixed in this release, each verified to fail
+  against the unfixed code.
+- Noise type selector: white noise (the original hash) or Perlin, a coherent
+  value-noise field that displaces in lumps rather than static.
+- Seed control for the Noise deformation.
+- CI workflow: JavaScript syntax checks, control-wiring validation, HTML validation.
+- `scripts/check-control-ids.mjs`, which verifies that every deformation has its
+  panel, every slider binds an element that exists, and the functions mirrored
+  between `main.js` and `worker.js` have not drifted apart.
+- IDW settings exports now record the control points actually used, so a recipe
+  reproduces on re-import instead of regenerating different points.
+
+### Fixed
+- Perspective Distortion in exponential mode produced discontinuities at 10,000-vertex
+  chunk boundaries; the normalization basis is now computed over the whole mesh.
+- A failing worker left the app waiting forever with the status stuck on
+  "Processing". Failed chunks now fall back to their undeformed vertices and the
+  operation always completes.
+- Importing spherize or perspective settings updated the values but left every
+  slider and the vanishing-point widget showing the previous state.
+- Loading an STL threw if a value label was absent from the page.
+- Vertex merge with epsilon 0 collapsed the entire mesh to a single point.
+- The progress bar stayed stranded mid-fill after a failed deformation.
+- Deformed geometries were never released, leaking GPU memory on each run.
+- Binary STL loading produced two normals per vertex, leaving the normal
+  attribute double-length and the mesh mis-shaded.
+- Loading an STL smaller than 84 bytes threw a RangeError before the parser
+  could read it.
+- An indexed mesh lost its index through a worker deformation: the index was
+  stored as a bare typed array with no `count`, so nothing drew.
+- Stale vertex normals of the wrong length survived recomputation.
+- IDW's interior-point sampling used a front-facing material, so rays cast from
+  inside a mesh hit nothing and every candidate point was rejected.
+- Importing IDW settings before the scene existed threw while adding markers.
+
+### Changed
+- `generateCurrent` is split: the per-deformation work moves into
+  `runDeformation(geometry, key, params)`, which takes the geometry to operate on
+  and returns the result. Single-deformation behaviour is unchanged.
+- `generateIDWControlPoints` accepts the geometry to sample, defaulting to the
+  loaded model, so a chained stage places control points inside the mesh it is
+  actually deforming.
+- `_quarto.yaml` is tracked, and the site build now includes the application
+  itself; previously `_site` held a page whose scripts were missing.
+- Sample STLs (54 MB) are excluded from the deployed site.
+- Removed the unused Three.js shim and dead branches in `worker.js`.
+- `CLAUDE.md` is no longer tracked in git.
+- `main.js` and `worker.js` now carry ES module exports so the test suite can
+  import them; both are loaded as modules by the page and the worker, and both
+  guard their start-up side effects so importing them is inert.
+
 ## [0.8.0] - 2026-05-01
 ### Added
 - Global scene, camera, and renderer exposure for browser console access.
