@@ -1,0 +1,23 @@
+{
+  "name": "stlshaper",
+  "version": "0.9.0",
+  "description": "Browser-based STL mesh deformation tool",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ToledoEM/stlShaper.git"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "check:wiring": "node scripts/check-control-ids.mjs"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.9"
+  }
+}

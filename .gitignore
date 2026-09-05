@@ -16,6 +16,11 @@
 dist/
 build/
 
+# Test tooling
+node_modules/
+coverage/
+.vitest/
+
 # Quarto
 # NOTE: _quarto.yaml is deliberately NOT ignored — it is the build's input
 # config and the publish workflow cannot render without it.
