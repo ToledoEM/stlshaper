@@ -13,6 +13,11 @@ class LocalSTLLoader {
   }
   parse(data) {
     function isBinary(data) {
+      // A binary STL is an 80-byte header, a uint32 face count, then 50 bytes
+      // per face. Anything shorter than that header cannot be binary, and
+      // reading the count would throw RangeError — which a small ASCII file
+      // would otherwise hit before reaching the ASCII parser.
+      if (data.byteLength < 84) return false;
       const reader = new DataView(data);
       const numFaces = reader.getUint32(80, true);
       const expectedSize = 84 + numFaces * 50;
@@ -40,7 +45,10 @@ class LocalSTLLoader {
           reader.getFloat32(vStart + 4, true),
           reader.getFloat32(vStart + 8, true),
         );
-        normals.push(nx, ny, nz, nx, ny, nz);
+        // One normal per vertex. Pushing the triple twice here produced two
+        // normals per vertex, leaving the attribute double-length and the
+        // mesh mis-shaded.
+        normals.push(nx, ny, nz);
       }
     }
     geometry.setAttribute(
@@ -439,6 +447,12 @@ function ensureGeometryNormals(geometry) {
   }
 
   if (needsNormals) {
+    // computeVertexNormals reuses an existing normal attribute in place and
+    // does not resize it, so a stale one with the wrong length would survive
+    // and leave the mesh mis-shaded. Drop it first and let THREE allocate.
+    if (normal && normal.count !== position.count) {
+      geometry.deleteAttribute("normal");
+    }
     geometry.computeVertexNormals();
   }
 }
@@ -602,8 +616,14 @@ class PoissonSampler {
   filterInsideVolume(samples, geometry, maxDirections = null) {
     const insideSamples = [];
 
-    // Create a temporary mesh for ray casting
-    const tempMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+    // Create a temporary mesh for ray casting. The material must be
+    // double-sided: rays cast from a point inside the mesh leave through
+    // back-faces, which a front-side material culls, so every interior point
+    // would register zero crossings and be rejected as outside.
+    const tempMesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+    );
 
     for (const sample of samples) {
       if (this.isPointInsideMesh(sample, tempMesh, maxDirections)) {
@@ -675,7 +695,9 @@ class WorkerPool {
 
     for (let i = 0; i < workerCount; i++) {
       try {
-        const worker = new Worker('worker.js');
+        // worker.js carries `export` statements for the test suite, so it must
+        // be instantiated as a module worker.
+        const worker = new Worker('worker.js', { type: 'module' });
         worker.workerId = i;
         worker.isBusy = false;
 
@@ -877,7 +899,12 @@ class WorkerPool {
       if (this.indexType === Array) {
         geometry.setIndex(this.indexArray);
       } else {
-        geometry.setIndex(new this.indexType(this.indexArray));
+        // setIndex stores a bare typed array as-is rather than wrapping it, so
+        // the resulting index has no `count` and the geometry draws nothing.
+        // Wrap it explicitly to keep the compact typed representation.
+        geometry.setIndex(
+          new THREE.BufferAttribute(new this.indexType(this.indexArray), 1)
+        );
       }
     }
     geometry.computeVertexNormals();
@@ -2344,6 +2371,10 @@ function updateControlPointVisualization() {
   // Only show control points for IDW deformation
   if (currentModelKey !== 'idw' || idwControlPoints.length === 0) return;
 
+  // The scene group only exists after init(); importing IDW settings before
+  // then would otherwise throw while adding the marker spheres.
+  if (!meshGroup) return;
+
   // Calculate sphere size based on model dimensions (5% of longest axis)
   let sphereRadius = 0.3; // Default fallback
   if (originalGeometry && originalGeometry.boundingBox) {
@@ -3296,9 +3327,100 @@ function generateIDWControlPoints() {
   return controlPoints;
 }
 
-// Start the application
-if (document.readyState === "loading") {
-  window.addEventListener("DOMContentLoaded", init);
-} else {
-  init();
+// Start the application. Guarded so that importing this module for tests does
+// not boot the app: there is no document under Node, and the test harness sets
+// __STLSHAPER_TEST__ before importing when a DOM is present via jsdom.
+if (typeof document !== "undefined" && !globalThis.__STLSHAPER_TEST__) {
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 }
+
+export {
+  // Bootstrap
+  init,
+  // STL I/O
+  LocalSTLLoader,
+  LocalSTLExporter,
+  createSTLLoader,
+  createSTLExporter,
+  parseSTL,
+  exportSTL,
+  // Noise
+  simpleHash,
+  noise,
+  perlinFade,
+  perlinLatticeValue,
+  perlinNoise,
+  perlinFractal,
+  sampleNoise,
+  // Geometry helpers
+  normalizeGeometry,
+  ensureGeometryNormals,
+  getAxisList,
+  getGeometryStats,
+  resetDeformedGeometries,
+  // Preprocessing and topology
+  applyPreprocess,
+  decimateGeometry,
+  mergeVerticesGeometry,
+  applyTopologyDeformation,
+  tessellateGeometry,
+  mengerCarveGeometry,
+  // Deformations (main-thread twins)
+  noiseShape,
+  sineDeformShape,
+  pixelateShape,
+  idwShape,
+  inflateShape,
+  twistShape,
+  bendShape,
+  rippleShape,
+  warpShape,
+  hyperShape,
+  boundaryDisruptShape,
+  spherizeShape,
+  perspVpTo3D,
+  perspComputeProjMax,
+  perspApplyVP,
+  perspShape,
+  // Scene and disposal
+  disposeMeshMaterial,
+  disposeUnreferencedGeometry,
+  setMeshGeometry,
+  updateCameraForGeometry,
+  resetViewToCurrentGeometry,
+  updateSceneMeshes,
+  updateControlPointVisualization,
+  hideProgressBar,
+  // Model scale
+  checkModelScale,
+  applyModelScale,
+  updateAdaptiveParameterRanges,
+  // Settings
+  exportSettings,
+  importSettingsFromFile,
+  applyImportedSettings,
+  syncSettingsUI,
+  // IDW
+  parseManualControlPoints,
+  generateIDWControlPoints,
+  PoissonSampler,
+  // UI wiring
+  setupControlPanels,
+  setupParameterControls,
+  setupPerspCanvas,
+  setupListeners,
+  clearModelAndUI,
+  loadDefaultSTL,
+  updateStats,
+  // Worker pool
+  WorkerPool,
+  // State accessors — the module's mutable globals are not directly importable
+  // as live bindings in a useful way, so expose them through functions.
+  deformParams,
+  deformationRegistry,
+  preprocessSettings,
+};

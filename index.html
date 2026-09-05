@@ -1214,17 +1214,21 @@
             window.OrbitControls = OrbitControls;
             window.STLLoader = STLLoader;
 
-            const loadScript = (src) =>
+            const loadScript = (src, type) =>
                 new Promise((resolve, reject) => {
                     const script = document.createElement("script");
+                    if (type) script.type = type;
                     script.src = src;
                     script.onload = resolve;
                     script.onerror = reject;
                     document.body.appendChild(script);
                 });
 
+            // FileSaver is a classic script and defines a global.
             await loadScript("libraries/FileSaver.min.js");
-            await loadScript("main.js");
+            // main.js carries `export` statements so it can be imported by the
+            // test suite, which makes it a module — it must load as one here.
+            await loadScript("main.js", "module");
         </script>
 
         <script>

@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [0.9.0] - 2026-09-05
 ### Added
+- Test suite: 520 tests via Vitest and jsdom, covering 98% of `main.js` and
+  100% of `worker.js`, with coverage reported to Codecov and floors enforced in
+  `vitest.config.js` so a regression fails the build.
+- Regression tests for every defect fixed in this release, each verified to fail
+  against the unfixed code.
 - Noise type selector: white noise (the original hash) or Perlin, a coherent
   value-noise field that displaces in lumps rather than static.
 - Seed control for the Noise deformation.
@@ -27,6 +32,16 @@ All notable changes to this project will be documented in this file.
 - Vertex merge with epsilon 0 collapsed the entire mesh to a single point.
 - The progress bar stayed stranded mid-fill after a failed deformation.
 - Deformed geometries were never released, leaking GPU memory on each run.
+- Binary STL loading produced two normals per vertex, leaving the normal
+  attribute double-length and the mesh mis-shaded.
+- Loading an STL smaller than 84 bytes threw a RangeError before the parser
+  could read it.
+- An indexed mesh lost its index through a worker deformation: the index was
+  stored as a bare typed array with no `count`, so nothing drew.
+- Stale vertex normals of the wrong length survived recomputation.
+- IDW's interior-point sampling used a front-facing material, so rays cast from
+  inside a mesh hit nothing and every candidate point was rejected.
+- Importing IDW settings before the scene existed threw while adding markers.
 
 ### Changed
 - `_quarto.yaml` is tracked, and the site build now includes the application
@@ -34,6 +49,9 @@ All notable changes to this project will be documented in this file.
 - Sample STLs (54 MB) are excluded from the deployed site.
 - Removed the unused Three.js shim and dead branches in `worker.js`.
 - `CLAUDE.md` is no longer tracked in git.
+- `main.js` and `worker.js` now carry ES module exports so the test suite can
+  import them; both are loaded as modules by the page and the worker, and both
+  guard their start-up side effects so importing them is inert.
 
 ## [0.8.0] - 2026-05-01
 ### Added
