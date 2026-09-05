@@ -48,6 +48,7 @@ Use deformation to explore how a single object changes under different mathemati
     -   **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.
     -   **Perspective Distortion**: Projects geometry through a configurable vanishing point. An interactive canvas widget lets you drag a dot to set the distortion direction; the center means no effect. Supports 1-point and 2-point modes (second orange dot adds an independent vanishing point), a plane selector (XY / XZ / YZ) to map widget axes to model space, linear and exponential falloff modes, and touch input on mobile.
     -   **Tessellate / Boundary Disruption / Menger Sponge**: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.
+-   **Deformation Chaining**: A three-slot bar along the bottom composes up to three deformations in order, each stage working on the previous stage's output rather than restarting from the original mesh. Chaining is optional — with every slot empty, Generate Deformation behaves exactly as before.
 -   **Real-time Deformation**: Updates the deformation in real-time, allowing for interactive experimentation.
 -   **Parameter Controls**: Interactive sliders and checkboxes for adjusting deformation parameters.
 -   **Adaptive Parameter Ranges**: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.
@@ -184,6 +185,22 @@ Settings files saved before the Type control existed load as White Noise, so old
 -   **Strength:** Overall distortion magnitude
 -   **Falloff:** Linear or Exponential
 
+### Chain Bar
+
+The bar along the bottom of the viewport composes up to three deformations, run in order when you click Calculate Output.
+
+-   **Slot 1 / 2 / 3:** Click a slot to point the parameter panel at it. A filled slot restores its own deformation and settings; the highlighted slot is the active one.
+-   **Set Slot:** Commit the currently selected deformation and its parameters into the active slot. This is the explicit save — selecting a different slot only reads, it never writes.
+-   **Clear Slot:** Empty the active slot.
+-   **Calculate Output:** Run every filled slot in order. Preprocessing is applied once, before the first stage, so vertex loss does not compound across stages.
+-   **Clear Chain:** Empty all three slots and discard the chain result.
+
+Order matters: noise-then-twist and twist-then-noise produce different meshes. Stages that depend on the mesh they are given are recomputed per stage — IDW places its control points inside the intermediate geometry, and Perspective recomputes its normalisation against it, which matters in exponential falloff mode where the value does not cancel out.
+
+Exports name themselves after the whole recipe, so a noise-then-twist chain saves as `noise_twist_deformed.stl`. Settings exports carry the chain alongside the usual single-deformation fields; a chain recipe re-imports into its slots, while recipes written before chaining still load as a single deformation.
+
+**Triangle budget.** Tessellate multiplies triangles fourfold per step, so three maxed-out Tessellate slots would multiply a mesh by 262,144. A chain projected to exceed 5,000,000 triangles is refused before anything runs, and the message names the slot responsible.
+
 ## Code Structure
 
 -   **`index.html`:** The main HTML file that sets up the Three.js scene, UI elements, and event listeners.
@@ -218,6 +235,21 @@ After deformation, you may need to repair the mesh in Meshlab. Use these filters
 -   Some STLs may require normal regeneration to avoid black/incorrect shading (handled in recent builds).
 
 ## Changelog
+
+### 0.9.0 (2026-09-05)
+
+-   Added deformation chaining: a three-slot bar composes up to three deformations in order, each stage fed the previous stage's output
+-   Added chain recipes to settings files; recipes written before chaining still load as a single deformation
+-   Added a triangle-count projection that refuses a chain projected to exceed 5,000,000 triangles, naming the slot responsible
+-   Added a Perlin noise type alongside the original white noise, plus a seed control
+-   IDW settings exports now record the control points actually used, so a recipe reproduces on re-import
+-   Added a test suite of 559 tests covering 98% of `main.js` and 100% of `worker.js`, with coverage floors enforced in CI
+-   Split `generateCurrent` into `runDeformation(geometry, key, params)`, which takes the geometry to operate on and returns the result
+-   Fixed Perspective Distortion discontinuities at chunk boundaries in exponential mode; the normalization basis is computed over the whole mesh
+-   Fixed a failing worker leaving the app stuck on "Processing" forever
+-   Fixed vertex merge with epsilon 0 collapsing the mesh to a single point
+-   Fixed binary STL loading producing two normals per vertex, leaving the mesh mis-shaded
+-   Fixed deformed geometries never being released, leaking GPU memory on each run
 
 ### 0.8.0 (2026-05-01)
 

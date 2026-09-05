@@ -37,6 +37,7 @@ STLShaper loads STL files and applies mathematical deformations: noise, sine wav
   - **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: A suite of expressive surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch exaggerates form along an axis for elastic, pulled silhouettes.
   - **Tessellate / Boundary Disruption / Menger Sponge**: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.
   - **Perspective Distortion**: Directional fisheye/barrel distortion controlled by an interactive circle widget. Drag the dot toward any direction to stretch vertices that way; center dot = no effect. Supports 1-point and 2-point vanishing modes, plane selector (XY/XZ/YZ), strength slider, and linear or exponential falloff.
+- **Deformation Chaining**: A three-slot bar along the bottom composes up to three deformations in order. Each stage works on the previous stage's output rather than restarting from the original mesh, so noise-then-twist is a different result than twist-then-noise. Chaining is optional — with every slot empty, Generate Deformation behaves exactly as before.
 - **Real-time Deformation**: Updates the deformation in real-time, allowing for interactive experimentation.
 - **Parameter Controls**: Interactive sliders and checkboxes for adjusting deformation parameters.
 - **Adaptive Parameter Ranges**: Parameters automatically scale based on model size to ensure consistent effects across different STL scales.
@@ -162,6 +163,27 @@ You can use STLShaper in either of these ways:
 
 *   **Generate Deformation:** Apply the deformation.
 *   **Export Current STL:** Export the deformed model.
+
+### Chain Bar
+
+The bar along the bottom of the viewport composes up to three deformations, run
+in order when you click Calculate Output.
+
+*   **Slot 1 / 2 / 3:** Click a slot to point the parameter panel at it. A filled slot restores its own deformation and settings; the highlighted slot is the active one.
+*   **Set Slot:** Commit the currently selected deformation and its parameters into the active slot. This is the explicit save — selecting a different slot only reads, it never writes.
+*   **Clear Slot:** Empty the active slot.
+*   **Calculate Output:** Run every filled slot in order, each stage fed the previous stage's output. Preprocessing (decimate, vertex merge) is applied once, before the first stage, so vertex loss does not compound.
+*   **Clear Chain:** Empty all three slots and discard the chain result.
+
+Exports name themselves after the whole recipe — a noise-then-twist chain saves
+as `noise_twist_deformed.stl`. Settings exports carry the chain alongside the
+usual single-deformation fields, so a chain recipe re-imports into its slots
+while older recipes still load as a single deformation.
+
+**Triangle budget.** Tessellate multiplies triangles fourfold per step, so three
+maxed-out Tessellate slots would multiply a mesh by 262,144. A chain projected to
+exceed 5,000,000 triangles is refused before anything runs, and the message names
+the slot responsible.
 
 ## Code Structure
 
