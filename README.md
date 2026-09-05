@@ -1,7 +1,6 @@
 # STLShaper ~ Subversion of Form
 
 [![CI](https://github.com/ToledoEM/stlShaper/actions/workflows/ci.yml/badge.svg)](https://github.com/ToledoEM/stlShaper/actions/workflows/ci.yml)
-[![Deploy Docs](https://github.com/ToledoEM/stlShaper/actions/workflows/publish.yml/badge.svg)](https://github.com/ToledoEM/stlShaper/actions/workflows/publish.yml)
 [![codecov](https://codecov.io/gh/ToledoEM/stlShaper/branch/main/graph/badge.svg)](https://codecov.io/gh/ToledoEM/stlShaper)
 ![Version](https://img.shields.io/badge/version-0.9.0-blue)
 ![Three.js](https://img.shields.io/badge/three.js-r121-black)
