@@ -4,7 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [0.9.0] - 2026-09-05
 ### Added
-- Test suite: 520 tests via Vitest and jsdom, covering 98% of `main.js` and
+- Deformation chaining: a three-slot bar along the bottom of the viewport
+  composes up to three deformations in order, each stage fed the previous
+  stage's output instead of restarting from the original mesh. Click a slot to
+  point the existing parameter panel at it, *Set Slot* to commit the current
+  deformation and settings, *Calculate Output* to run the chain.
+- Chain recipes in settings files: exports gain a `chain` array and imports fill
+  the slots from it. Files written before chaining still load as a single
+  deformation, and a chain file also carries the single-deformation fields so it
+  degrades gracefully in older builds.
+- A triangle-count projection that refuses to run a chain whose output would
+  exceed 5,000,000 triangles, naming the slot responsible. Tessellate multiplies
+  triangles fourfold per step, so three maxed-out slots would otherwise multiply
+  the mesh by 262,144 and take the tab down.
+- Test suite: 559 tests via Vitest and jsdom, covering 98% of `main.js` and
   100% of `worker.js`, with coverage reported to Codecov and floors enforced in
   `vitest.config.js` so a regression fails the build.
 - Regression tests for every defect fixed in this release, each verified to fail
@@ -44,6 +57,12 @@ All notable changes to this project will be documented in this file.
 - Importing IDW settings before the scene existed threw while adding markers.
 
 ### Changed
+- `generateCurrent` is split: the per-deformation work moves into
+  `runDeformation(geometry, key, params)`, which takes the geometry to operate on
+  and returns the result. Single-deformation behaviour is unchanged.
+- `generateIDWControlPoints` accepts the geometry to sample, defaulting to the
+  loaded model, so a chained stage places control points inside the mesh it is
+  actually deforming.
 - `_quarto.yaml` is tracked, and the site build now includes the application
   itself; previously `_site` held a page whose scripts were missing.
 - Sample STLs (54 MB) are excluded from the deployed site.
