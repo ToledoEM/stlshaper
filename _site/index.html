@@ -230,6 +230,43 @@
                 z-index: 1;
             }
 
+            /* Pinned to the bottom, clearing the 300px #ui panel on the left. */
+            #chainBar {
+                position: absolute;
+                bottom: 10px;
+                left: 320px;
+                right: 10px;
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+                padding: 8px 10px;
+                background: var(--bg-ui);
+                border-radius: 4px;
+                font-size: 0.85em;
+            }
+
+            #chainLabel {
+                color: var(--text-stats);
+                font-weight: bold;
+            }
+
+            .chain-slot {
+                min-width: 110px;
+                background: var(--bg-control);
+                border: 1px solid var(--border);
+            }
+
+            .chain-slot.active {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+
+            .chain-slot.filled {
+                background: var(--bg-btn);
+            }
+
             #stats {
                 padding: 6px;
                 background: var(--bg-control);
@@ -1168,6 +1205,28 @@
         </div>
 
         <div id="container"></div>
+
+        <div id="chainBar">
+            <span id="chainLabel">Chain:</span>
+            <button type="button" class="chain-slot" id="chainSlot0" data-slot="0">
+                1: empty
+            </button>
+            <button type="button" class="chain-slot" id="chainSlot1" data-slot="1">
+                2: empty
+            </button>
+            <button type="button" class="chain-slot" id="chainSlot2" data-slot="2">
+                3: empty
+            </button>
+            <button type="button" id="chainSetBtn" title="Put the currently selected deformation into the active slot">
+                Set Slot
+            </button>
+            <button type="button" id="chainClearSlotBtn" title="Empty the active slot">
+                Clear Slot
+            </button>
+            <button type="button" id="chainCalcBtn" disabled>Calculate Output</button>
+            <button type="button" id="chainClearBtn">Clear Chain</button>
+        </div>
+
         <div id="scale-prompt">
             <span>Model is very large — scale down for better viewing?</span>
             <button onclick="applyModelScale(0.1)">10%</button>
@@ -1186,16 +1245,16 @@
                 <ol>
                     <li>Load an STL file using the file picker.</li>
                     <li>Choose a deformation type from the panel.</li>
-                    <li>Adjust parameters and click Apply.</li>
+                    <li>Adjust parameters and click Generate Deformation.</li>
                     <li>Export your result as STL.</li>
                 </ol>
 
-                <h3 class="modal-section">NEW IN 0.8.0 — May 2026</h3>
+                <h3 class="modal-section">NEW IN 0.9.0 — September 2026</h3>
                 <ul>
-                    <li><strong>Global scene, camera, renderer</strong> — Available in browser console</li>
-                    <li><strong>Enhanced UI/GUI</strong> with improved styling and layout</li>
-                    <li><strong>Canvas improvements</strong> — Better widget interaction</li>
-                    <li><strong>Documentation site</strong> with full guides</li>
+                    <li><strong>Deformation chaining</strong> — Compose up to three deformations in the bar along the bottom</li>
+                    <li><strong>Perlin noise</strong> — Coherent noise field, plus a seed control</li>
+                    <li><strong>Reproducible IDW recipes</strong> — Settings exports record the control points actually used</li>
+                    <li><strong>Test suite</strong> — 559 tests guarding against regressions</li>
                 </ul>
 
                 <div id="welcomeFooter">
@@ -1214,17 +1273,21 @@
             window.OrbitControls = OrbitControls;
             window.STLLoader = STLLoader;
 
-            const loadScript = (src) =>
+            const loadScript = (src, type) =>
                 new Promise((resolve, reject) => {
                     const script = document.createElement("script");
+                    if (type) script.type = type;
                     script.src = src;
                     script.onload = resolve;
                     script.onerror = reject;
                     document.body.appendChild(script);
                 });
 
+            // FileSaver is a classic script and defines a global.
             await loadScript("libraries/FileSaver.min.js");
-            await loadScript("main.js");
+            // main.js carries `export` statements so it can be imported by the
+            // test suite, which makes it a module — it must load as one here.
+            await loadScript("main.js", "module");
         </script>
 
         <script>

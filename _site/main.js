@@ -13,6 +13,11 @@ class LocalSTLLoader {
   }
   parse(data) {
     function isBinary(data) {
+      // A binary STL is an 80-byte header, a uint32 face count, then 50 bytes
+      // per face. Anything shorter than that header cannot be binary, and
+      // reading the count would throw RangeError — which a small ASCII file
+      // would otherwise hit before reaching the ASCII parser.
+      if (data.byteLength < 84) return false;
       const reader = new DataView(data);
       const numFaces = reader.getUint32(80, true);
       const expectedSize = 84 + numFaces * 50;
@@ -40,7 +45,10 @@ class LocalSTLLoader {
           reader.getFloat32(vStart + 4, true),
           reader.getFloat32(vStart + 8, true),
         );
-        normals.push(nx, ny, nz, nx, ny, nz);
+        // One normal per vertex. Pushing the triple twice here produced two
+        // normals per vertex, leaving the attribute double-length and the
+        // mesh mis-shaded.
+        normals.push(nx, ny, nz);
       }
     }
     geometry.setAttribute(
@@ -327,6 +335,18 @@ let deformedGeometries = {};
 let currentModelKey = "noise";
 let originalFileName = null; // Track original file name for settings export
 
+// The output of the most recent chain run. A chain's result belongs to no
+// single deformation key, so it lives beside deformedGeometries rather than in
+// it, and takes precedence while it exists.
+let chainResult = null;
+
+// The geometry the viewer, exporter and button-enabling logic should treat as
+// "the deformed model": the chain's output when a chain has been run, otherwise
+// the single-deformation result for the selected type.
+function activeDeformedGeometry() {
+  return chainResult ?? deformedGeometries[currentModelKey];
+}
+
 // UI elements and parameters
 let processBtn, statusElement, exportBtn, toggleView, renderMode, clearBtn, statsElement;
 let meshGroup; // Group to hold the visible THREE.js meshes
@@ -369,6 +389,166 @@ const preprocessSettings = {
   decimate: 100,
   mergeEpsilon: 0
 };
+
+// --- Deformation chain ---
+//
+// Up to three deformations composed in order, each stage fed the previous
+// stage's output. An all-empty chain is inert: Generate Deformation behaves
+// exactly as it did before chaining existed.
+
+const CHAIN_SLOTS = 3;
+
+// Refuse to run a chain projected to exceed this. Three tessellate slots at the
+// slider's maximum multiply the triangle count by 262,144, which against the
+// shipped 15,580-triangle default model is billions of triangles — enough to
+// kill the tab from a single mistyped step count. ~5M triangles is roughly
+// 180 MB of float32 positions.
+const MAX_CHAIN_TRIANGLES = 5_000_000;
+
+let deformationChain = new Array(CHAIN_SLOTS).fill(null); // null = empty slot
+let activeChainSlot = 0;
+
+// Deep-enough copy of a deformation's parameters. persp nests vp1/vp2, and
+// aliasing them would let a later edit mutate a stage that was already
+// configured; idw's controlPoints array has the same problem.
+function cloneDeformParams(params) {
+  const copy = { ...params };
+  if (copy.vp1) copy.vp1 = { ...copy.vp1 };
+  if (copy.vp2) copy.vp2 = { ...copy.vp2 };
+  if (Array.isArray(copy.controlPoints)) {
+    copy.controlPoints = copy.controlPoints.map((p) => ({ x: p.x, y: p.y, z: p.z }));
+  }
+  return copy;
+}
+
+// How much a single stage multiplies the triangle count.
+//
+// Only the topology-changing deformations grow the mesh; every worker-backed
+// one is vertex-for-vertex. Menger subdivides before it carves, and carving
+// only removes faces, so treating it as pure growth is a safe over-estimate.
+function stageGrowthFactor(stage) {
+  if (!stage) return 1;
+  if (stage.key === "tessellate") {
+    return 4 ** Math.max(0, Math.floor(stage.params?.steps ?? 1));
+  }
+  if (stage.key === "menger") {
+    // mengerCarveGeometry clamps its subdivision to Math.min(2, iterations),
+    // so the iterations slider's max of 3 never reaches the geometry and the
+    // real bound is 4**2. If that clamp is ever loosened, this must follow it
+    // or the projection will silently under-report.
+    return 4 ** 2;
+  }
+  return 1;
+}
+
+// Projects the triangle count a chain would produce, without running it.
+// Returns the running total after each filled stage so a refusal can name the
+// slot that broke the budget.
+function projectChainTriangles(chain, startTriangles) {
+  const steps = [];
+  let triangles = startTriangles;
+  for (let i = 0; i < chain.length; i++) {
+    const stage = chain[i];
+    if (!stage) continue;
+    triangles *= stageGrowthFactor(stage);
+    steps.push({ slot: i, key: stage.key, triangles });
+  }
+  return steps;
+}
+
+// The first stage whose projected output exceeds the cap, or null if the whole
+// chain fits.
+function findChainOverflow(chain, startTriangles) {
+  const steps = projectChainTriangles(chain, startTriangles);
+  return steps.find((step) => step.triangles > MAX_CHAIN_TRIANGLES) ?? null;
+}
+
+function filledChainStages(chain = deformationChain) {
+  return chain.filter((stage) => stage !== null);
+}
+
+// Sets a slot from a deformation key, snapshotting the parameters as they stand
+// now. Passing null empties the slot.
+function setChainSlot(index, key, params = deformParams[key]) {
+  if (index < 0 || index >= CHAIN_SLOTS) return;
+  deformationChain[index] = key ? { key, params: cloneDeformParams(params) } : null;
+  // Any change to the recipe invalidates the result it produced.
+  chainResult = null;
+}
+
+function clearChain() {
+  deformationChain = new Array(CHAIN_SLOTS).fill(null);
+  activeChainSlot = 0;
+  chainResult = null;
+}
+
+// A chain's identity for filenames and status text: "noise_twist_bend".
+function chainDescription(chain = deformationChain) {
+  return filledChainStages(chain).map((stage) => stage.key).join("_");
+}
+
+function deformationLabel(key) {
+  return deformationRegistry.find((entry) => entry.key === key)?.label ?? key;
+}
+
+// Redraws the slot buttons from chain state. Called after any change to a slot
+// or to the active selection.
+function renderChainBar() {
+  for (let i = 0; i < CHAIN_SLOTS; i++) {
+    const button = document.getElementById(`chainSlot${i}`);
+    if (!button) continue;
+    const stage = deformationChain[i];
+    button.textContent = stage
+      ? `${i + 1}: ${deformationLabel(stage.key)}`
+      : `${i + 1}: empty`;
+    button.classList.toggle("active", i === activeChainSlot);
+    button.classList.toggle("filled", Boolean(stage));
+  }
+
+  const calcBtn = document.getElementById("chainCalcBtn");
+  if (calcBtn) {
+    calcBtn.disabled = !(originalGeometry && filledChainStages().length > 0);
+  }
+}
+
+// Points the left-hand panel at a slot. The panel machinery is reused wholesale:
+// setupControlPanels shows the right panel, syncSettingsUI fills in the values.
+function selectChainSlot(index) {
+  if (index < 0 || index >= CHAIN_SLOTS) return;
+
+  // No implicit write-back on the way out. deformParams is a single buffer
+  // shared by every slot using the same deformation, so "snapshot the panel
+  // into the outgoing slot" cannot tell an edit meant for the slot being left
+  // from one meant for the slot being entered — with two twist slots it would
+  // stamp the incoming values onto the outgoing stage. Set Slot is the explicit
+  // commit; selecting a slot only ever reads.
+  activeChainSlot = index;
+
+  // A filled slot restores its own deformation and parameters into the panel.
+  const stage = deformationChain[index];
+  if (stage) {
+    currentModelKey = stage.key;
+    deformParams[stage.key] = cloneDeformParams(stage.params);
+    const typeRadio = document.querySelector(
+      `input[name="type"][value="${stage.key}"]`
+    );
+    if (typeRadio) typeRadio.checked = true;
+    setupControlPanels();
+    syncSettingsUI(stage.key);
+  }
+
+  renderChainBar();
+}
+
+// Puts the deformation currently selected in the panel into the active slot.
+function setActiveChainSlotFromPanel() {
+  setChainSlot(activeChainSlot, currentModelKey);
+  renderChainBar();
+  statusDisplay.update(
+    `Slot ${activeChainSlot + 1} set to ${deformationLabel(currentModelKey)}.`,
+    false
+  );
+}
 
 const deformationRegistry = [
   { key: "noise", label: "Noise", controlsId: "noiseControls", usesWorker: true },
@@ -439,6 +619,12 @@ function ensureGeometryNormals(geometry) {
   }
 
   if (needsNormals) {
+    // computeVertexNormals reuses an existing normal attribute in place and
+    // does not resize it, so a stale one with the wrong length would survive
+    // and leave the mesh mis-shaded. Drop it first and let THREE allocate.
+    if (normal && normal.count !== position.count) {
+      geometry.deleteAttribute("normal");
+    }
     geometry.computeVertexNormals();
   }
 }
@@ -602,8 +788,14 @@ class PoissonSampler {
   filterInsideVolume(samples, geometry, maxDirections = null) {
     const insideSamples = [];
 
-    // Create a temporary mesh for ray casting
-    const tempMesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial());
+    // Create a temporary mesh for ray casting. The material must be
+    // double-sided: rays cast from a point inside the mesh leave through
+    // back-faces, which a front-side material culls, so every interior point
+    // would register zero crossings and be rejected as outside.
+    const tempMesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+    );
 
     for (const sample of samples) {
       if (this.isPointInsideMesh(sample, tempMesh, maxDirections)) {
@@ -675,7 +867,9 @@ class WorkerPool {
 
     for (let i = 0; i < workerCount; i++) {
       try {
-        const worker = new Worker('worker.js');
+        // worker.js carries `export` statements for the test suite, so it must
+        // be instantiated as a module worker.
+        const worker = new Worker('worker.js', { type: 'module' });
         worker.workerId = i;
         worker.isBusy = false;
 
@@ -877,7 +1071,12 @@ class WorkerPool {
       if (this.indexType === Array) {
         geometry.setIndex(this.indexArray);
       } else {
-        geometry.setIndex(new this.indexType(this.indexArray));
+        // setIndex stores a bare typed array as-is rather than wrapping it, so
+        // the resulting index has no `count` and the geometry draws nothing.
+        // Wrap it explicitly to keep the compact typed representation.
+        geometry.setIndex(
+          new THREE.BufferAttribute(new this.indexType(this.indexArray), 1)
+        );
       }
     }
     geometry.computeVertexNormals();
@@ -977,14 +1176,14 @@ const statusDisplay = {
     // Export button is enabled ONLY if a file is loaded AND a deformed geometry exists
     if (exportBtn)
       exportBtn.disabled = !(
-        originalGeometry && deformedGeometries[currentModelKey]
+        originalGeometry && activeDeformedGeometry()
       );
 
     // Export Settings button has the same conditions as Export button
     const exportSettingsBtn = document.getElementById("exportSettingsBtn");
     if (exportSettingsBtn)
       exportSettingsBtn.disabled = !(
-        originalGeometry && deformedGeometries[currentModelKey]
+        originalGeometry && activeDeformedGeometry()
       );
 
     if (message.includes("successfully")) {
@@ -1232,6 +1431,7 @@ function setupListeners() {
     radio.addEventListener("change", (e) => {
       currentModelKey = e.target.value;
       setupControlPanels(); // Correct function call for updating UI panel visibility
+      renderChainBar();
       // FIX: If a deformed model already exists for this type, update the scene to show it.
       if (originalGeometry) {
         updateSceneMeshes();
@@ -1253,6 +1453,56 @@ function setupListeners() {
       statusDisplay.error("Error generating deformation.");
     }
   };
+
+  // Chain Bar
+  for (let i = 0; i < CHAIN_SLOTS; i++) {
+    const slotBtn = document.getElementById(`chainSlot${i}`);
+    if (slotBtn) slotBtn.onclick = () => selectChainSlot(i);
+  }
+  const chainSetBtn = document.getElementById("chainSetBtn");
+  if (chainSetBtn) chainSetBtn.onclick = setActiveChainSlotFromPanel;
+
+  const chainClearSlotBtn = document.getElementById("chainClearSlotBtn");
+  if (chainClearSlotBtn) {
+    chainClearSlotBtn.onclick = () => {
+      setChainSlot(activeChainSlot, null);
+      renderChainBar();
+      updateSceneMeshes();
+    };
+  }
+
+  const chainCalcBtn = document.getElementById("chainCalcBtn");
+  if (chainCalcBtn) {
+    chainCalcBtn.onclick = async () => {
+      if (!originalGeometry) {
+        statusDisplay.error("Please load an STL first.");
+        return;
+      }
+      // The panel is the live editing buffer, so fold pending slider edits into
+      // the active slot before running — but only while the panel is still
+      // showing that slot's own deformation, or this would overwrite the stage
+      // with an unrelated deformation's parameters.
+      const active = deformationChain[activeChainSlot];
+      if (active && active.key === currentModelKey) {
+        active.params = cloneDeformParams(deformParams[active.key]);
+      }
+      await runChain();
+      updateSceneMeshes();
+      renderChainBar();
+    };
+  }
+
+  const chainClearBtn = document.getElementById("chainClearBtn");
+  if (chainClearBtn) {
+    chainClearBtn.onclick = () => {
+      clearChain();
+      renderChainBar();
+      updateSceneMeshes();
+      statusDisplay.update("Chain cleared.", false);
+    };
+  }
+
+  renderChainBar();
 
   // Export Button
   exportBtn.onclick = exportSTL;
@@ -1293,6 +1543,7 @@ function clearModelAndUI() {
   // Reset geometries
   originalGeometry = null;
   resetDeformedGeometries();
+  chainResult = null;
   originalFileName = null; // Reset original file name
 
   // Clear meshes from scene
@@ -1327,6 +1578,7 @@ function clearModelAndUI() {
   if (exportSettingsBtn) exportSettingsBtn.disabled = true;
   const fileInput = document.getElementById("fileInput");
   if (fileInput) fileInput.value = "";
+  renderChainBar();
   if (statusElement) statusElement.textContent = "Cleared. Ready to load STL.";
   if (statsElement) statsElement.textContent = "Stats: N/A";
 }
@@ -1704,12 +1956,16 @@ function parseSTL(arrayBuffer) {
   originalGeometry.computeBoundingBox();
   originalGeometry.computeBoundingSphere();
   ensureGeometryNormals(originalGeometry);
-  // Clear any old deformed models when a new file is loaded
+  // Clear any old deformed models when a new file is loaded. The chain's own
+  // result belongs to the previous model, so it goes too — the slot recipe is
+  // kept, so the chain can simply be re-run against the new mesh.
   resetDeformedGeometries();
+  chainResult = null;
 
   // Update adaptive parameter ranges based on model size
   updateAdaptiveParameterRanges();
   updateStats(originalGeometry, null, null);
+  renderChainBar();
 
   console.log(
     "STL Loaded. Vertices:",
@@ -2083,6 +2339,145 @@ function mengerCarveGeometry(geometry, iterations = 1, keepRatio = 0.7) {
   return newGeom;
 }
 
+// Runs a single deformation against the geometry it is handed, and returns the
+// result rather than storing it. Everything geometry-dependent lives here — the
+// IDW control points and the perspective normalisation both have to be derived
+// from the mesh actually being deformed, which for a chained stage is the
+// previous stage's output rather than the original model.
+//
+// `params` is taken as an argument instead of read from `deformParams` so a
+// chain stage can supply the snapshot it was configured with.
+async function runDeformation(geometry, key, params) {
+  const defEntry = deformationRegistry.find((entry) => entry.key === key);
+  if (!defEntry) {
+    throw new Error(`Unknown deformation type: ${key}`);
+  }
+
+  let workingGeometry = geometry;
+
+  // Special handling for IDW: generate control points
+  if (key === 'idw') {
+    let controlPoints = [];
+    if (params.manualPoints) {
+      controlPoints = parseManualControlPoints(params.pointsText);
+      if (controlPoints.length === 0) {
+        console.warn("Manual control points empty; falling back to auto-generated points.");
+      }
+    }
+    if (controlPoints.length === 0) {
+      controlPoints = generateIDWControlPoints(workingGeometry);
+    }
+    idwControlPoints = controlPoints;
+    params.controlPoints = controlPoints;
+    console.log(`Using ${controlPoints.length} control points for IDW deformation`);
+  }
+
+  // Perspective normalizes against the largest projection across the whole
+  // mesh. Workers only ever see a 10K-vertex chunk, so compute it here and
+  // pass it down, or each chunk would scale against its own local maximum.
+  //
+  // This must be recomputed per stage: projMax cancels algebraically in linear
+  // mode but NOT in exponential mode, so a stale value from an earlier stage is
+  // silently wrong rather than obviously broken.
+  if (key === 'persp') {
+    workingGeometry.computeBoundingBox();
+    const pbox = workingGeometry.boundingBox;
+    const pcx = (pbox.min.x + pbox.max.x) * 0.5;
+    const pcy = (pbox.min.y + pbox.max.y) * 0.5;
+    const pcz = (pbox.min.z + pbox.max.z) * 0.5;
+    const parr = workingGeometry.getAttribute('position').array;
+    params.projMax1 = perspComputeProjMax(
+      parr, pcx, pcy, pcz, perspVpTo3D(params.vp1, params.plane)
+    );
+    if (params.vpMode === 2) {
+      params.projMax2 = perspComputeProjMax(
+        parr, pcx, pcy, pcz, perspVpTo3D(params.vp2, params.plane)
+      );
+    }
+  }
+
+  // Topology-changing methods are handled on main thread
+  if (!defEntry.usesWorker) {
+    const topologyGeometry = applyTopologyDeformation(key, params, workingGeometry);
+    ensureGeometryNormals(topologyGeometry);
+    return topologyGeometry;
+  }
+
+  // Set up progress callback
+  workerPool.setProgressCallback((completed, total) => {
+    const progress = Math.round((completed / total) * 100);
+    statusDisplay.update(`Processing ${key} deformation... ${progress}%`, true);
+  });
+
+  try {
+    // Use worker pool for parallel processing
+    const deformedGeometry = await workerPool.deformVertices(
+      key,
+      params,
+      workingGeometry
+    );
+
+    ensureGeometryNormals(deformedGeometry);
+    return normalizeGeometry(deformedGeometry);
+  } finally {
+    // Drop the callback once this run is done. A chunk completing late would
+    // otherwise keep writing "Processing..." over whatever the user did next —
+    // a Set Slot confirmation, say — making the later action look ignored.
+    workerPool.setProgressCallback(null);
+  }
+}
+
+// Runs the filled chain slots in order, each stage fed the previous stage's
+// output. Preprocessing happens once, before the loop: decimating between
+// stages would compound vertex loss.
+async function runChain() {
+  if (!originalGeometry) return;
+
+  const stages = filledChainStages();
+  if (stages.length === 0) {
+    statusDisplay.error("Chain is empty. Add a deformation to a slot first.");
+    return;
+  }
+
+  try {
+    const workingGeometry = applyPreprocess(originalGeometry);
+
+    // Check the projection before touching anything. On refusal the current
+    // model is left exactly as it was.
+    const startTriangles = getGeometryStats(workingGeometry).triangles;
+    const overflow = findChainOverflow(deformationChain, startTriangles);
+    if (overflow) {
+      statusDisplay.error(
+        `Chain refused: slot ${overflow.slot + 1} (${overflow.key}) would reach ` +
+        `${overflow.triangles.toLocaleString()} triangles, over the ` +
+        `${MAX_CHAIN_TRIANGLES.toLocaleString()} limit. Reduce its steps.`
+      );
+      return;
+    }
+
+    const startTime = performance.now();
+    let geometry = workingGeometry;
+    for (let i = 0; i < stages.length; i++) {
+      const stage = stages[i];
+      statusDisplay.update(
+        `Stage ${i + 1}/${stages.length}: ${stage.key} deformation...`,
+        true
+      );
+      geometry = await runDeformation(geometry, stage.key, cloneDeformParams(stage.params));
+    }
+
+    chainResult = normalizeGeometry(geometry);
+    const elapsed = performance.now() - startTime;
+    updateStats(originalGeometry, chainResult, elapsed);
+    statusDisplay.update(`Generated ${chainDescription()} chain successfully.`, false);
+
+  } catch (error) {
+    console.error('Chain error:', error);
+    hideProgressBar();
+    statusDisplay.error('Error generating chain.');
+  }
+}
+
 async function generateCurrent() {
   if (!originalGeometry) return;
 
@@ -2095,78 +2490,20 @@ async function generateCurrent() {
       return;
     }
 
+    // A single deformation supersedes any chain output: leaving it set would
+    // make activeDeformedGeometry keep returning the chain's result, and this
+    // deformation would look like it did nothing.
+    chainResult = null;
+
     // Preprocess geometry if requested
-    let workingGeometry = applyPreprocess(originalGeometry);
-
-    // Special handling for IDW: generate control points
-    let params = { ...deformParams[currentModelKey] };
-    if (currentModelKey === 'idw') {
-      let controlPoints = [];
-      if (deformParams.idw.manualPoints) {
-        controlPoints = parseManualControlPoints(deformParams.idw.pointsText);
-        if (controlPoints.length === 0) {
-          console.warn("Manual control points empty; falling back to auto-generated points.");
-        }
-      }
-      if (controlPoints.length === 0) {
-        controlPoints = generateIDWControlPoints();
-      }
-      idwControlPoints = controlPoints;
-      params.controlPoints = controlPoints;
-      console.log(`Using ${controlPoints.length} control points for IDW deformation`);
-    }
-
-    // Perspective normalizes against the largest projection across the whole
-    // mesh. Workers only ever see a 10K-vertex chunk, so compute it here and
-    // pass it down, or each chunk would scale against its own local maximum.
-    if (currentModelKey === 'persp') {
-      workingGeometry.computeBoundingBox();
-      const pbox = workingGeometry.boundingBox;
-      const pcx = (pbox.min.x + pbox.max.x) * 0.5;
-      const pcy = (pbox.min.y + pbox.max.y) * 0.5;
-      const pcz = (pbox.min.z + pbox.max.z) * 0.5;
-      const parr = workingGeometry.getAttribute('position').array;
-      params.projMax1 = perspComputeProjMax(
-        parr, pcx, pcy, pcz, perspVpTo3D(params.vp1, params.plane)
-      );
-      if (params.vpMode === 2) {
-        params.projMax2 = perspComputeProjMax(
-          parr, pcx, pcy, pcz, perspVpTo3D(params.vp2, params.plane)
-        );
-      }
-    }
+    const workingGeometry = applyPreprocess(originalGeometry);
+    const params = { ...deformParams[currentModelKey] };
 
     const startTime = performance.now();
-
-    // Topology-changing methods are handled on main thread
-    if (!defEntry.usesWorker) {
-      const topologyGeometry = applyTopologyDeformation(currentModelKey, params, workingGeometry);
-      ensureGeometryNormals(topologyGeometry);
-      deformedGeometries[currentModelKey] = topologyGeometry;
-      const elapsed = performance.now() - startTime;
-      updateStats(originalGeometry, topologyGeometry, elapsed);
-      statusDisplay.update(`Generated ${currentModelKey} deformation successfully.`, false);
-      return;
-    }
-
-    // Set up progress callback
-    workerPool.setProgressCallback((completed, total) => {
-      const progress = Math.round((completed / total) * 100);
-      statusDisplay.update(`Processing ${currentModelKey} deformation... ${progress}%`, true);
-    });
-
-    // Use worker pool for parallel processing
-    const deformedGeometry = await workerPool.deformVertices(
-      currentModelKey,
-      params,
-      workingGeometry
-    );
-
-    // Store the result
-    ensureGeometryNormals(deformedGeometry);
-    deformedGeometries[currentModelKey] = normalizeGeometry(deformedGeometry);
+    const result = await runDeformation(workingGeometry, currentModelKey, params);
+    deformedGeometries[currentModelKey] = result;
     const elapsed = performance.now() - startTime;
-    updateStats(originalGeometry, deformedGeometry, elapsed);
+    updateStats(originalGeometry, result, elapsed);
 
     statusDisplay.update(`Generated ${currentModelKey} deformation successfully.`, false);
 
@@ -2204,6 +2541,9 @@ function disposeMeshMaterial(mesh) {
 function disposeUnreferencedGeometry(geometry) {
   if (!geometry || typeof geometry.dispose !== "function") return;
   if (geometry === originalGeometry) return;
+  // The chain's output is held outside deformedGeometries, so it needs its own
+  // check here or the viewer would dispose it on the next mesh swap.
+  if (geometry === chainResult) return;
   for (const key in deformedGeometries) {
     if (deformedGeometries[key] === geometry) return;
   }
@@ -2240,7 +2580,7 @@ function updateCameraForGeometry(geometry, forceReset = false) {
 
 function resetViewToCurrentGeometry() {
   const showDeformed = toggleView && toggleView.checked;
-  const deformedExists = deformedGeometries[currentModelKey];
+  const deformedExists = activeDeformedGeometry();
   const geometryToDraw = showDeformed && deformedExists ? deformedExists : originalGeometry;
   if (!geometryToDraw) return;
   updateCameraForGeometry(geometryToDraw, true);
@@ -2249,7 +2589,7 @@ function resetViewToCurrentGeometry() {
 function updateSceneMeshes() {
   // Determine which geometry to show
   const showDeformed = toggleView.checked;
-  const deformedExists = deformedGeometries[currentModelKey];
+  const deformedExists = activeDeformedGeometry();
 
   // Show original if no deformed model exists or if toggle is off
   let geometryToDraw = originalGeometry;
@@ -2344,6 +2684,10 @@ function updateControlPointVisualization() {
   // Only show control points for IDW deformation
   if (currentModelKey !== 'idw' || idwControlPoints.length === 0) return;
 
+  // The scene group only exists after init(); importing IDW settings before
+  // then would otherwise throw while adding the marker spheres.
+  if (!meshGroup) return;
+
   // Calculate sphere size based on model dimensions (5% of longest axis)
   let sphereRadius = 0.3; // Default fallback
   if (originalGeometry && originalGeometry.boundingBox) {
@@ -2376,12 +2720,14 @@ function updateControlPointVisualization() {
 }
 
 function exportSTL() {
-  const activeModel = deformedGeometries[currentModelKey];
+  const activeModel = activeDeformedGeometry();
   if (!activeModel) {
     statusDisplay.error("No deformed model generated to export.");
     return;
   }
-  statusDisplay.update(`Exporting ${currentModelKey} model...`, true);
+  // A chain result is named for the whole recipe, not the selected radio.
+  const exportName = chainResult ? chainDescription() : currentModelKey;
+  statusDisplay.update(`Exporting ${exportName} model...`, true);
   try {
     const scene = new THREE.Scene();
     const mesh = new THREE.Mesh(activeModel);
@@ -2390,10 +2736,10 @@ function exportSTL() {
     const stlData = exporter.parse(scene, { binary: true });
 
     const blob = new Blob([stlData], { type: "application/octet-stream" });
-    saveAs(blob, `${currentModelKey}_deformed.stl`);
+    saveAs(blob, `${exportName}_deformed.stl`);
 
     statusDisplay.update(
-      `Export successful! ${currentModelKey}_deformed.stl`,
+      `Export successful! ${exportName}_deformed.stl`,
       false,
     );
   } catch (e) {
@@ -2403,13 +2749,14 @@ function exportSTL() {
 }
 
 function exportSettings() {
-  const activeModel = deformedGeometries[currentModelKey];
+  const activeModel = activeDeformedGeometry();
   if (!activeModel) {
     statusDisplay.error("No deformed model generated to export settings.");
     return;
   }
 
-  statusDisplay.update(`Exporting ${currentModelKey} settings...`, true);
+  const settingsName = chainResult ? chainDescription() : currentModelKey;
+  statusDisplay.update(`Exporting ${settingsName} settings...`, true);
 
   try {
     const settingsData = {
@@ -2419,6 +2766,17 @@ function exportSettings() {
       preprocess: { ...preprocessSettings },
       exportDateTime: new Date().toISOString()
     };
+
+    // A chain is recorded alongside the single-deformation fields rather than
+    // instead of them, so a chain recipe still opens in an older build as the
+    // deformation that happened to be selected.
+    const stages = filledChainStages();
+    if (stages.length > 0) {
+      settingsData.chain = stages.map((stage) => ({
+        deformationType: stage.key,
+        settings: cloneDeformParams(stage.params)
+      }));
+    }
 
     // IDW control points are resolved at generate time by raycasting against the
     // loaded mesh, so the same seed on a different model yields different points.
@@ -2433,10 +2791,10 @@ function exportSettings() {
 
     const jsonString = JSON.stringify(settingsData, null, 2);
     const blob = new Blob([jsonString], { type: "application/json" });
-    saveAs(blob, `${currentModelKey}_settings.json`);
+    saveAs(blob, `${settingsName}_settings.json`);
 
     statusDisplay.update(
-      `Settings exported! ${currentModelKey}_settings.json`,
+      `Settings exported! ${settingsName}_settings.json`,
       false,
     );
   } catch (e) {
@@ -2467,6 +2825,15 @@ function applyImportedSettings(data) {
     statusDisplay.error("Invalid settings format.");
     return;
   }
+
+  // A chain file is handled before the single-deformation guard below, since it
+  // need not carry a top-level deformationType. Files without a `chain` key —
+  // every recipe written before chaining existed — fall through unchanged.
+  if (Array.isArray(data.chain) && data.chain.length > 0) {
+    applyImportedChain(data);
+    return;
+  }
+
   const type = data.deformationType;
   const settings = data.settings;
   if (!type || !deformParams[type] || !settings) {
@@ -2506,16 +2873,66 @@ function applyImportedSettings(data) {
     }
   }
 
+  // A single-deformation recipe replaces whatever chain was loaded, so the
+  // imported settings are not masked by a stale chain result.
+  clearChain();
+
   const typeRadio = document.querySelector(`input[name="type"][value="${type}"]`);
   if (typeRadio) typeRadio.checked = true;
   currentModelKey = type;
   setupControlPanels();
   syncSettingsUI(type);
+  renderChainBar();
 
   const pointNote = restoredPoints
     ? ` Restored ${restoredPoints} control points.`
     : "";
   statusDisplay.update(`Imported settings for ${type}.${pointNote} Click 'Generate Deformation' to apply.`, false);
+}
+
+// Loads a chain recipe into the slots. Stages beyond the slot count, and any
+// naming a deformation this build does not have, are dropped with a warning
+// rather than failing the whole import.
+function applyImportedChain(data) {
+  const stages = data.chain
+    .filter((stage) => stage && deformParams[stage.deformationType])
+    .slice(0, CHAIN_SLOTS);
+
+  if (stages.length === 0) {
+    statusDisplay.error("Chain settings contain no known deformations.");
+    return;
+  }
+  if (stages.length < data.chain.length) {
+    console.warn(
+      `Chain import: kept ${stages.length} of ${data.chain.length} stages ` +
+      `(unknown deformations or more than ${CHAIN_SLOTS} slots).`
+    );
+  }
+
+  if (data.preprocess && typeof data.preprocess === "object") {
+    if (typeof data.preprocess.decimate === "number") {
+      preprocessSettings.decimate = data.preprocess.decimate;
+    }
+    if (typeof data.preprocess.mergeEpsilon === "number") {
+      preprocessSettings.mergeEpsilon = data.preprocess.mergeEpsilon;
+    }
+  }
+
+  clearChain();
+  stages.forEach((stage, i) => {
+    const key = stage.deformationType;
+    setChainSlot(i, key, { ...deformParams[key], ...(stage.settings || {}) });
+  });
+
+  // Point the panel at the first stage so the imported recipe is immediately
+  // editable, reusing the same path the slot buttons take.
+  selectChainSlot(0);
+
+  statusDisplay.update(
+    `Imported ${stages.length}-stage chain: ${chainDescription()}. ` +
+    `Click 'Calculate Output' to apply.`,
+    false
+  );
 }
 
 function syncSettingsUI(type) {
@@ -3220,13 +3637,29 @@ function parseManualControlPoints(text) {
 }
 
 // Generate IDW control points using Poisson disk sampling
-function generateIDWControlPoints() {
-  if (!originalGeometry || !originalGeometry.boundingBox) {
+// Places control points inside a mesh's volume by raycasting against it.
+//
+// `sourceGeometry` defaults to the loaded model, which is what the
+// single-deformation path wants. A chained stage passes the geometry produced by
+// the stage before it, so the points land inside the mesh actually being
+// deformed rather than inside the original.
+function generateIDWControlPoints(sourceGeometry = originalGeometry) {
+  if (!sourceGeometry) {
     console.warn('No geometry available for control point generation');
     return [];
   }
+  // An intermediate chain geometry may not have had its bounds computed yet.
+  if (!sourceGeometry.boundingBox) {
+    if (typeof sourceGeometry.computeBoundingBox === "function") {
+      sourceGeometry.computeBoundingBox();
+    }
+    if (!sourceGeometry.boundingBox) {
+      console.warn('No geometry available for control point generation');
+      return [];
+    }
+  }
 
-  const bbox = originalGeometry.boundingBox;
+  const bbox = sourceGeometry.boundingBox;
   const sizeX = bbox.max.x - bbox.min.x;
   const sizeY = bbox.max.y - bbox.min.y;
   const sizeZ = bbox.max.z - bbox.min.z;
@@ -3245,7 +3678,7 @@ function generateIDWControlPoints() {
   // Filter to only include points inside the mesh volume
   const insideSamples = sampler.filterInsideVolume(
     samples,
-    originalGeometry,
+    sourceGeometry,
     deformParams.idw.rays
   );
 
@@ -3259,7 +3692,7 @@ function generateIDWControlPoints() {
     const additionalSamples = sampler.generateSamples(smallerMinDistance, maxSamples * 5, bbox);
     const additionalInside = sampler.filterInsideVolume(
       additionalSamples,
-      originalGeometry,
+      sourceGeometry,
       deformParams.idw.rays
     );
     controlPoints = [...new Set([...controlPoints, ...additionalInside])]; // Remove duplicates
@@ -3296,9 +3729,118 @@ function generateIDWControlPoints() {
   return controlPoints;
 }
 
-// Start the application
-if (document.readyState === "loading") {
-  window.addEventListener("DOMContentLoaded", init);
-} else {
-  init();
+// Start the application. Guarded so that importing this module for tests does
+// not boot the app: there is no document under Node, and the test harness sets
+// __STLSHAPER_TEST__ before importing when a DOM is present via jsdom.
+if (typeof document !== "undefined" && !globalThis.__STLSHAPER_TEST__) {
+  if (document.readyState === "loading") {
+    window.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
 }
+
+export {
+  // Bootstrap
+  init,
+  // STL I/O
+  LocalSTLLoader,
+  LocalSTLExporter,
+  createSTLLoader,
+  createSTLExporter,
+  parseSTL,
+  exportSTL,
+  // Noise
+  simpleHash,
+  noise,
+  perlinFade,
+  perlinLatticeValue,
+  perlinNoise,
+  perlinFractal,
+  sampleNoise,
+  // Geometry helpers
+  normalizeGeometry,
+  ensureGeometryNormals,
+  getAxisList,
+  getGeometryStats,
+  resetDeformedGeometries,
+  // Preprocessing and topology
+  applyPreprocess,
+  decimateGeometry,
+  mergeVerticesGeometry,
+  applyTopologyDeformation,
+  tessellateGeometry,
+  mengerCarveGeometry,
+  // Deformations (main-thread twins)
+  noiseShape,
+  sineDeformShape,
+  pixelateShape,
+  idwShape,
+  inflateShape,
+  twistShape,
+  bendShape,
+  rippleShape,
+  warpShape,
+  hyperShape,
+  boundaryDisruptShape,
+  spherizeShape,
+  perspVpTo3D,
+  perspComputeProjMax,
+  perspApplyVP,
+  perspShape,
+  // Scene and disposal
+  disposeMeshMaterial,
+  disposeUnreferencedGeometry,
+  setMeshGeometry,
+  updateCameraForGeometry,
+  resetViewToCurrentGeometry,
+  updateSceneMeshes,
+  updateControlPointVisualization,
+  hideProgressBar,
+  // Model scale
+  checkModelScale,
+  applyModelScale,
+  updateAdaptiveParameterRanges,
+  // Settings
+  exportSettings,
+  importSettingsFromFile,
+  applyImportedSettings,
+  applyImportedChain,
+  syncSettingsUI,
+  // Deformation chain
+  runDeformation,
+  runChain,
+  activeDeformedGeometry,
+  projectChainTriangles,
+  findChainOverflow,
+  stageGrowthFactor,
+  cloneDeformParams,
+  setChainSlot,
+  clearChain,
+  chainDescription,
+  filledChainStages,
+  selectChainSlot,
+  renderChainBar,
+  deformationChain,
+  CHAIN_SLOTS,
+  MAX_CHAIN_TRIANGLES,
+  // IDW
+  parseManualControlPoints,
+  generateIDWControlPoints,
+  PoissonSampler,
+  // UI wiring
+  setupControlPanels,
+  setupParameterControls,
+  setupPerspCanvas,
+  setupListeners,
+  clearModelAndUI,
+  loadDefaultSTL,
+  updateStats,
+  // Worker pool
+  WorkerPool,
+  // State accessors — the module's mutable globals are not directly importable
+  // as live bindings in a useful way, so expose them through functions.
+  deformParams,
+  deformationRegistry,
+  preprocessSettings,
+};
