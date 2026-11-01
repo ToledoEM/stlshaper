@@ -1,6 +1,6 @@
 {
   "name": "stlshaper",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Browser-based STL mesh deformation tool",
   "type": "module",
   "private": true,

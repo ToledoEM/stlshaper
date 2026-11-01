@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.9.1] - 2026-11-01
 ### Security
 - Upgraded the test tooling, Vitest and `@vitest/coverage-v8`, from 2.1.9 to
   5.0.5, clearing 17 Dependabot alerts (3 critical). This updates Vite from

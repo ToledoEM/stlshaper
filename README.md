@@ -2,12 +2,12 @@
 
 [![CI](https://github.com/ToledoEM/stlShaper/actions/workflows/ci.yml/badge.svg)](https://github.com/ToledoEM/stlShaper/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/ToledoEM/stlShaper/branch/main/graph/badge.svg)](https://codecov.io/gh/ToledoEM/stlShaper)
-![Version](https://img.shields.io/badge/version-0.9.0-blue)
+![Version](https://img.shields.io/badge/version-0.9.1-blue)
 ![Three.js](https://img.shields.io/badge/three.js-r121-black)
 ![No Build](https://img.shields.io/badge/build-none-brightgreen)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Version: 0.9.0 (2026-09-05)
+Version: 0.9.1 (2026-11-01)
 
 
 **This is under constant development and may change at any time :-)** 
