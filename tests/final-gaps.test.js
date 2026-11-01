@@ -275,3 +275,43 @@ describe("normalizeGeometry legacy conversion", () => {
     if (!had) delete proto.fromGeometry;
   });
 });
+
+describe("init with optional controls absent", () => {
+  beforeEach(() => stubRenderer());
+  afterEach(() => { restore(); vi.restoreAllMocks(); });
+
+  // Every optional control is looked up and guarded, so a trimmed page (an
+  // older index.html, or a panel removed) must still boot and accept a model.
+  it("boots, loads a model and reacts to input without the optional controls", () => {
+    mountIndexHtml();
+    const optional = [
+      '[id^="chainSlot"]', "#chainSetBtn", "#chainClearSlotBtn", "#chainCalcBtn",
+      "#chainClearBtn", "#importSettingsBtn", "#clearBtn", "#resetViewBtn",
+      '[id$="Val"]', '[id$="Value"]',
+    ];
+    document.querySelectorAll(optional.join(",")).forEach((el) => el.remove());
+    vi.spyOn(THREE.FileLoader.prototype, "load").mockImplementation((url, cb) =>
+      cb(binarySTL(boxVertices(60)))
+    );
+
+    expect(() => M.init()).not.toThrow();
+    document.querySelectorAll('input[type="range"]').forEach((el) => {
+      el.dispatchEvent(new window.Event("input", { bubbles: true }));
+    });
+    expect(document.getElementById("chainCalcBtn")).toBeNull();
+  });
+});
+
+describe("worker module outside a worker scope", () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules(); });
+
+  // Imported under Node or a page, worker.js must leave onmessage alone.
+  it("does not bind onmessage when self has no postMessage", async () => {
+    const scope = {};
+    vi.stubGlobal("self", scope);
+    vi.resetModules();
+    const W = await import("../worker.js");
+    expect(typeof W.handleMessage).toBe("function");
+    expect(scope.onmessage).toBeUndefined();
+  });
+});

@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Security
+- Upgraded the test tooling, Vitest and `@vitest/coverage-v8`, from 2.1.9 to
+  5.0.5, clearing 17 Dependabot alerts (3 critical). This updates Vite from
+  5.4.21 to 8.3.5 and source-map-js from 1.2.1 to 1.2.2, and removes tinypool,
+  esbuild, minimatch and brace-expansion from the dependency tree. All of these
+  are development dependencies used only to run the tests. None of them is
+  loaded by the app, which still runs entirely in the browser on local files.
+- CI workflow now runs with read-only `contents` permission.
+- The test helper that loads `index.html` strips `<script>` tags by parsing the
+  page instead of using a regex, which CodeQL flagged as an incomplete filter.
+
+### Changed
+- Coverage floors re-baselined for Vitest 5: statements 97% and branches 89%,
+  with lines and functions still at 98%. Vitest 5 also counts the implicit else
+  of guards such as `if (el) { ... }`. On the same code and tests, branch
+  coverage measured 93.77% under Vitest 2 and 88.47% under Vitest 5, while line
+  coverage rose.
+- Two new tests: one boots the app with the optional controls removed, and one
+  imports `worker.js` outside a worker. They bring the suite to 561 tests and
+  `worker.js` back to 100% branch coverage.
+
 ## [0.9.0] - 2026-09-05
 ### Added
 - Deformation chaining: a three-slot bar along the bottom of the viewport
