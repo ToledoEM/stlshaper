@@ -9,13 +9,15 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const html = fs.readFileSync(path.join(here, "../index.html"), "utf8");
 
 // Strip <script> blocks: the page's own bootstrap imports Three from a CDN and
-// would try to boot the app a second time.
-const body = html
-  .replace(/<script[\s\S]*?<\/script>/g, "")
-  .match(/<body[^>]*>([\s\S]*)<\/body>/i);
+// would try to boot the app a second time. Parsed rather than regex-matched,
+// so no script survives malformed or unusual markup. DOMParser never runs
+// the scripts it parses.
+const doc = new DOMParser().parseFromString(html, "text/html");
+doc.querySelectorAll("script").forEach((s) => s.remove());
+const body = doc.body.innerHTML;
 
 export function mountIndexHtml() {
-  document.body.innerHTML = body ? body[1] : "";
+  document.body.innerHTML = body;
   return document.body;
 }
 

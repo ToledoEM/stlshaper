@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main, dev]
 
+# Both jobs only check out and run node; nothing writes back to the repo.
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Validate
