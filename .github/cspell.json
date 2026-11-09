@@ -1,0 +1,20 @@
+{
+  "version": "0.2",
+  "language": "en-GB",
+  "globRoot": "..",
+  "files": [
+    "docs/**/*.md"
+  ],
+  "ignorePaths": [
+    "docs/img/**",
+    "docs/overrides/**"
+  ],
+  "words": [
+    "Enrique",
+    "Menger",
+    "Meshlab",
+    "Perlin",
+    "Printables",
+    "Spherize"
+  ]
+}

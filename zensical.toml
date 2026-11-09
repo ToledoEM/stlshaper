@@ -1,0 +1,60 @@
+[project]
+site_name = "STLShaper"
+site_description = "Browser-based STL mesh deformation tool"
+site_url = "https://toledoem.github.io/stlshaper/documentation/"
+docs_dir = "docs"
+# The app owns the site root; the docs build lands under /documentation/.
+site_dir = "site/documentation"
+copyright = 'Docs made with <a href="https://zensical.org">Zensical</a> · STLShaper developed by ToledoEM · MIT License'
+repo_url = "https://github.com/ToledoEM/stlShaper"
+repo_name = "ToledoEM/stlShaper"
+
+exclude_docs = "overrides/"
+
+nav = [
+  { "Documentation" = "index.md" },
+]
+
+[project.extra]
+generator = false
+
+[project.theme]
+language = "en"
+custom_dir = "docs/overrides"
+icon.repo = "fontawesome/brands/github"
+features = [
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.inlinehilite = {}
+pymdownx.superfences = {}

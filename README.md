@@ -210,7 +210,7 @@ the slot responsible.
 
 **STLShaper** is released under the [MIT License](LICENSE).
 
-For a detailed breakdown of third-party libraries and attributions, see the [License & Attributions](https://toledoem.github.io/stlshaper/documentation.html#license--attributions) section in the full documentation.
+For a detailed breakdown of third-party libraries and attributions, see the [License & Attributions](https://toledoem.github.io/stlshaper/documentation/#license-attributions) section in the full documentation.
 
 ### Quick Reference
 

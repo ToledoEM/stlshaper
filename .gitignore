@@ -21,14 +21,10 @@ node_modules/
 coverage/
 .vitest/
 
-# Quarto
-# NOTE: _quarto.yaml is deliberately NOT ignored — it is the build's input
-# config and the publish workflow cannot render without it.
-/.quarto/
-**/*.quarto_ipynb
-documentation_files/
-
-
+# Docs site build output (Zensical + assembled app; CI publishes it to gh-pages)
+site/
+_site/
+.venv/
 
 # Local build helper
 render.sh
