@@ -1,35 +1,18 @@
----
-title: "STLShaper by ToledoEM"
-extensions:
-  iconify:
-    style: "color: #b22222;"
-format:
-  html:
-    theme: cosmo
-    css: styles.css
-    toc: false
-    number-sections: false
-    smooth-scroll: true
-    link-external-icon: true
-    link-external-newwindow: true
-    include-in-header:
-      text: |
-        <link href="https://fonts.googleapis.com/css?family=Fira+Sans|Merriweather" rel="stylesheet" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css" />
-        <script data-goatcounter="https://etoledo.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
----
+# STLShaper 
 
-![A Sine Falcon Millennium](img/MF_ripple_deformed.png){fig-align="center" width="800"}
+*Version: 0.9.1*
 
-::: callout-note
-This project is under constant development.
-:::
+![A Sine Falcon Millennium](img/MF_ripple_deformed.png){ width="800" }
+
+!!! note
+
+    This project is under constant development.
 
 STLShaper loads STL files and applies mathematical deformations in real time: noise, sine waves, pixelation, inverse distance weighting, and topology-altering methods like tessellation and Menger sponges. You adjust parameters and export the result. The point is to make your models deliberately weird: unsettling, beautiful, broken.
 
-::: callout-tip
-Use deformation to explore how a single object changes under different mathematical rules. What does your model look like if you apply noise? Sine waves? A Menger sponge carved through it? Save the weird ones.
-:::
+!!! tip
+
+    Use deformation to explore how a single object changes under different mathematical rules. What does your model look like if you apply noise? Sine waves? A Menger sponge carved through it? Save the weird ones.
 
 ## Motivation & Creative Exploration
 
@@ -45,8 +28,8 @@ Use deformation to explore how a single object changes under different mathemati
     -   **Sine Wave**: Displaces vertices along a sine curve, creating rhythmic ripples across the model.
     -   **Pixelate**: Pixelates the model by snapping vertices to a grid, offering a stark, fragmented aesthetic.
     -   **IDW Shepard**: Multiple control points scattered through the model's interior. Each vertex moves based on distance to those points, and closer points pull harder.
-    -   **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: Surface operators. Inflate swells outward by distance from center, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch stretches the form along an axis.
-    -   **Perspective Distortion**: Projects geometry through a configurable vanishing point. An interactive canvas widget lets you drag a dot to set the distortion direction; the center means no effect. Supports 1-point and 2-point modes (second orange dot adds an independent vanishing point), a plane selector (XY / XZ / YZ) to map widget axes to model space, linear and exponential falloff modes, and touch input on mobile.
+    -   **Inflate / Twist / Bend / Ripple / Warp / Hyperbolic Stretch**: Surface operators. Inflate swells outward by distance from centre, Twist rotates along a chosen axis, Bend arcs the mesh over a controllable range, Ripple adds wave-like undulation, Warp introduces spatial noise-based offsets, and Hyperbolic Stretch stretches the form along an axis.
+    -   **Perspective Distortion**: Projects geometry through a configurable vanishing point. An interactive canvas widget lets you drag a dot to set the distortion direction; the centre means no effect. Supports 1-point and 2-point modes (second orange dot adds an independent vanishing point), a plane selector (XY / XZ / YZ) to map widget axes to model space, linear and exponential falloff modes, and touch input on mobile.
     -   **Tessellate / Boundary Disruption / Menger Sponge**: Topology-oriented transformations. Tessellate subdivides triangles to add geometric density, Boundary Disruption jitters near edges for torn or frayed contours, and Menger Sponge carves repeating voids for porous, lattice-like structures.
 -   **Deformation Chaining**: A three-slot bar along the bottom composes up to three deformations in order, each stage working on the previous stage's output rather than restarting from the original mesh. Chaining is optional. With every slot empty, Generate Deformation behaves exactly as before.
 -   **Real-time Deformation**: Updates the deformation as you change parameters.
@@ -63,17 +46,17 @@ Use deformation to explore how a single object changes under different mathemati
 
 ## Deformation Examples
 
-![Original](img/Original_benchy.png){fig-align="center" width="800"}
+![Original](img/Original_benchy.png){ width="800" }
 
-![Sine Wave Deformation](img/sine_deformed.png){fig-align="center" width="800"}
+![Sine Wave Deformation](img/sine_deformed.png){ width="800" }
 
-![Pixelated Deformation](img/pixel_deformed.png){fig-align="center" width="800"}
+![Pixelated Deformation](img/pixel_deformed.png){ width="800" }
 
-![Perspective Distortion](img/persp_deformed.png){fig-align="center" width="800"}
+![Perspective Distortion](img/persp_deformed.png){ width="800" }
 
-![Ripple Deformation](img/ripple_deformed.png){fig-align="center" width="800"}
+![Ripple Deformation](img/ripple_deformed.png){ width="800" }
 
-![Spherize Deformation](img/spherize_deformed.png){fig-align="center" width="800"}
+![Spherize Deformation](img/spherize_deformed.png){ width="800" }
 
 ## IDW Shepard Deformation
 
@@ -103,7 +86,7 @@ The vanishing-point projection is applied directly to mesh vertices. It moves th
 
 ### Key Features
 
--   **Interactive canvas widget**: Drag a dot inside a circle; dot position = stretch direction, center = no effect
+-   **Interactive canvas widget**: Drag a dot inside a circle; dot position = stretch direction, centre = no effect
 -   **1-point mode**: Single vanishing point for classic perspective exaggeration
 -   **2-point mode**: Second orange dot adds an independent vanishing point for complex projections
 -   **Plane selector**: XY / XZ / YZ maps the 2D widget axes to the correct model-space plane
@@ -210,23 +193,19 @@ Exports name themselves after the whole recipe, so a noise-then-twist chain save
 
 ## Important Notes
 
-::: callout-warning
-## Performance Considerations
+!!! warning "Performance Considerations"
 
--   The performance depends on the complexity of the STL model and chosen deformation algorithm
--   The rendering process can be slow with complex models
--   Web Workers improve responsiveness for large meshes and multi-point IDW
-:::
+    -   The performance depends on the complexity of the STL model and chosen deformation algorithm
+    -   The rendering process can be slow with complex models
+    -   Web Workers improve responsiveness for large meshes and multi-point IDW
 
-::: callout-important
-## Post-processing Required
+!!! danger "Post-processing Required"
 
-After deformation, you may need to repair the mesh in Meshlab. Use these filters:
+    After deformation, you may need to repair the mesh in Meshlab. Use these filters:
 
-1.  Filters -\> Cleaning and Repairing
-2.  Remove Zero Area Faces (twice)
-3.  Repair Non-manifold Edges (split)
-:::
+    1.  Filters -\> Cleaning and Repairing
+    2.  Remove Zero Area Faces (twice)
+    3.  Repair Non-manifold Edges (split)
 
 
 ## Notes
@@ -261,7 +240,7 @@ After deformation, you may need to repair the mesh in Meshlab. Use these filters
 ### 0.7.0 (2026-04-21)
 
 -   Added Perspective Distortion deformation with interactive vanishing-point picker widget
--   Circle canvas widget with draggable dot to set distortion direction; center = no effect
+-   Circle canvas widget with draggable dot to set distortion direction; centre = no effect
 -   1-point and 2-point mode: second orange dot adds independent vanishing point
 -   Plane selector (XY / XZ / YZ) maps widget axes to model space
 -   Linear and exponential falloff modes
@@ -277,7 +256,7 @@ After deformation, you may need to repair the mesh in Meshlab. Use these filters
 
 ### 0.5.0 (2026-02-08)
 
--   Updated GUI and camera behavior
+-   Updated GUI and camera behaviour
 -   Fixed P0, P1, P3, and P4 issue sets
 
 ### 0.4.0 (2025-10-28)

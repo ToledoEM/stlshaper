@@ -1,0 +1,31 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+# Only checks out and runs node; nothing writes back to the repo.
+permissions:
+  contents: read
+
+jobs:
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      # Advisory until the existing findings in main.js, worker.js and tests/
+      # are fixed; then drop continue-on-error.
+      - name: Lint
+        continue-on-error: true
+        run: npm run lint

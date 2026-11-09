@@ -13,10 +13,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "check:wiring": "node scripts/check-control-ids.mjs"
+    "check:wiring": "node scripts/check-control-ids.mjs",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^5.0.5",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
     "jsdom": "^25.0.1",
     "vitest": "^5.0.5"
   }

@@ -1,0 +1,96 @@
+name: Site
+
+# Every push to main spellchecks the docs, builds them with Zensical in strict
+# mode, puts the app next to them and publishes the result to the gh-pages
+# branch (https://toledoem.github.io/stlshaper/, docs under /documentation/).
+# Pull requests and manual runs do the checks only, unless `deploy` is ticked.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Publish the built site to gh-pages"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: false
+
+# Jobs grant their own permissions; nothing by default.
+permissions: {}
+
+jobs:
+  check:
+    name: Spellcheck + strict build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Spellcheck docs
+        uses: streetsidesoftware/cspell-action@ce1816e4ce36532956ac6e983737392774b6e169 # v9.2.0
+        with:
+          config: .github/cspell.json
+          files: docs/**/*.md
+          incremental_files_only: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: uv sync --frozen --only-group dev
+      # --strict aborts on warnings: broken internal links, pages missing from nav, config errors.
+      # Output goes to site/documentation (zensical.toml site_dir).
+      - run: uv run zensical build --strict --clean
+      # The app owns the site root. This list is everything index.html and
+      # main.js load at runtime, plus the example settings files.
+      - name: Add the app to the site root
+        run: |
+          cp index.html main.js worker.js JustBones617_0_resaved_1_NIH3D.stl site/
+          cp -R libraries site/
+          mkdir -p site/stl
+          cp -R stl/settings_examples site/stl/
+          for f in index.html main.js worker.js libraries/FileSaver.min.js \
+                   JustBones617_0_resaved_1_NIH3D.stl documentation/index.html; do
+            test -s "site/$f" || { echo "::error::site/$f missing"; exit 1; }
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site
+          path: site/
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    name: Publish to gh-pages
+    needs: check
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.deploy
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: site-pages
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site
+          path: site
+      # One commit, force-pushed: gh-pages holds only the latest build.
+      - name: Push site to gh-pages
+        working-directory: site
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          touch .nojekyll
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "site: build for ${SHA::7}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" gh-pages
