@@ -9,7 +9,7 @@ All notable changes to this project will be documented in this file.
 - The test helper that loads `index.html` strips `<script>` tags by parsing the page instead of using a regex, which CodeQL flagged as an incomplete filter.
 
 ### Changed
-- Coverage floors re-baselined for Vitest 5: statements 97% and branches 89%, with lines and functions still at 98%. Vitest 5 also counts the implicit else of guards such as `if (el) { ... }`. On the same code and tests, branch coverage measured 93.77% under Vitest 2 and 88.47% under Vitest 5, while line coverage rose.
+- New coverage baseline for Vitest 5: statements 97% and branches 89%, with lines and functions still at 98%. Vitest 5 also counts the implicit else of guards such as `if (el) { ... }`. On the same code and tests, branch coverage measured 93.77% under Vitest 2 and 88.47% under Vitest 5, while line coverage rose.
 - Two new tests: one boots the app with the optional controls removed, and one imports `worker.js` outside a worker. They bring the suite to 561 tests and `worker.js` back to 100% branch coverage.
 
 ## [0.9.0] - 2026-09-05
@@ -27,7 +27,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Perspective Distortion in exponential mode produced discontinuities at 10,000-vertex chunk boundaries; the normalization basis is now computed over the whole mesh.
-- A failing worker left the app waiting forever with the status stuck on "Processing". Failed chunks now fall back to their undeformed vertices and the operation always completes.
+- A failing worker left the app waiting forever with the status stuck on "Processing". Failed chunks now fall back to their original vertices and the operation always completes.
 - Importing spherize or perspective settings updated the values but left every slider and the vanishing-point widget showing the previous state.
 - Loading an STL threw if a value label was absent from the page.
 - Vertex merge with epsilon 0 collapsed the entire mesh to a single point.
@@ -36,7 +36,7 @@ All notable changes to this project will be documented in this file.
 - Binary STL loading produced two normals per vertex, leaving the normal attribute double-length and the mesh mis-shaded.
 - Loading an STL smaller than 84 bytes threw a RangeError before the parser could read it.
 - An indexed mesh lost its index through a worker deformation: the index was stored as a bare typed array with no `count`, so nothing drew.
-- Stale vertex normals of the wrong length survived recomputation.
+- Stale vertex normals of the wrong length survived recalculation.
 - IDW's interior-point sampling used a front-facing material, so rays cast from inside a mesh hit nothing and every candidate point was rejected.
 - Importing IDW settings before the scene existed threw while adding markers.
 
@@ -61,7 +61,7 @@ All notable changes to this project will be documented in this file.
 ## [0.7.0] - 2026-04-21
 ### Added
 - Perspective Distortion deformation with interactive vanishing-point picker widget.
-- Circle canvas widget with draggable dot(s) to set distortion direction — dot position = stretch direction, center = no effect.
+- Circle canvas widget with draggable dot(s) to set distortion direction — dot position = stretch direction, centre = no effect.
 - 1-point and 2-point mode: second orange dot adds a second independent vanishing point.
 - Plane selector (XY / XZ / YZ) maps widget axes to model space.
 - Linear and exponential falloff modes for distortion strength.
@@ -89,7 +89,7 @@ All notable changes to this project will be documented in this file.
 - GPU memory leak from rebuilding meshes/materials without disposal. Leads to runaway memory use and degraded performance until the page becomes unusable.
 
 ### P1 (High)
-- Bounds/centering invalidation: after `center()` the bounds are stale, breaking adaptive ranges and control-point placement.
+- Bounds/centring invalidation: after `center()` the bounds are stale, breaking adaptive ranges and control-point placement.
 - Camera UX scaling: fixed camera limits make small/large models hard to navigate; should scale to model size and offer reset.
 - Rendering performance: recreating meshes on each update causes GC churn and frame drops; should update geometry/materials in place.
 
@@ -108,7 +108,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.5.0] - 2026-02-08
 ### Changed
-- Updated GUI and camera behavior.
+- Updated GUI and camera behaviour.
 
 ### Fixed
 - Addressed P0, P1, P3, and P4 issue sets.
