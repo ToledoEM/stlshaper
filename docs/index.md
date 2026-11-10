@@ -1,3 +1,8 @@
+---
+hide:
+  - navigation
+---
+
 # STLShaper 
 
 *Version: 0.9.1*
@@ -214,6 +219,13 @@ Exports name themselves after the whole recipe, so a noise-then-twist chain save
 -   Some STLs may require normal regeneration to avoid black/incorrect shading (handled in recent builds).
 
 ## Changelog
+
+### 0.9.1 (2026-11-01)
+
+-   Upgraded Vitest and `@vitest/coverage-v8` from 2.1.9 to 5.0.5, clearing 17 Dependabot alerts; development dependencies only
+-   CI workflow now runs with read-only `contents` permission
+-   The test helper that loads `index.html` strips `<script>` tags by parsing the page instead of using a regex
+-   Coverage floors re-baselined for Vitest 5; the suite now has 561 tests
 
 ### 0.9.0 (2026-09-05)
 

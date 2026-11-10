@@ -9,6 +9,7 @@ copyright = 'Docs made with <a href="https://zensical.org">Zensical</a> · STLSh
 repo_url = "https://github.com/ToledoEM/stlShaper"
 repo_name = "ToledoEM/stlShaper"
 
+extra_css = ["stylesheets/extra.css"]
 exclude_docs = "overrides/"
 
 nav = [
