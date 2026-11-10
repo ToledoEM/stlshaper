@@ -198,6 +198,8 @@ Exports name themselves after the whole recipe, so a noise-then-twist chain save
     -   The performance depends on the complexity of the STL model and chosen deformation algorithm
     -   The rendering process can be slow with complex models
     -   Web Workers improve responsiveness for large meshes and multi-point IDW
+    -   For dense meshes, the Preprocess options cut processing time: Decimate keeps a percentage of triangles and Vertex Merge collapses near-identical vertices
+    -   A chain projected to exceed 5,000,000 triangles is refused before it runs
 
 !!! danger "Post-processing Required"
 
@@ -211,70 +213,10 @@ Exports name themselves after the whole recipe, so a noise-then-twist chain save
 ## Notes
 
 -   IDW Shepard deformation works best with solid, manifold meshes. Complex or thin-walled models may produce unexpected results.
--   Some STLs may require normal regeneration to avoid black/incorrect shading (handled in recent builds).
 
 ## Changelog
 
-### 0.9.0 (2026-09-05)
-
--   Added deformation chaining: a three-slot bar composes up to three deformations in order, each stage fed the previous stage's output
--   Added chain recipes to settings files; recipes written before chaining still load as a single deformation
--   Added a triangle-count projection that refuses a chain projected to exceed 5,000,000 triangles, naming the slot responsible
--   Added a Perlin noise type alongside the original white noise, plus a seed control
--   IDW settings exports now record the control points actually used, so a recipe reproduces on re-import
--   Added a test suite of 559 tests covering 98% of `main.js` and 100% of `worker.js`, with coverage floors enforced in CI
--   Split `generateCurrent` into `runDeformation(geometry, key, params)`, which takes the geometry to operate on and returns the result
--   Fixed Perspective Distortion discontinuities at chunk boundaries in exponential mode; the normalization basis is computed over the whole mesh
--   Fixed a failing worker leaving the app stuck on "Processing" forever
--   Fixed vertex merge with epsilon 0 collapsing the mesh to a single point
--   Fixed binary STL loading producing two normals per vertex, leaving the mesh mis-shaded
--   Fixed deformed geometries never being released, leaking GPU memory on each run
-
-### 0.8.0 (2026-05-01)
-
--   Exposed global scene, camera, and renderer for browser console access
--   Improved UI/GUI with enhanced styling and layout refinements
--   Canvas widget layout and interaction improvements
--   Documentation rendering and organization
-
-### 0.7.0 (2026-04-21)
-
--   Added Perspective Distortion deformation with interactive vanishing-point picker widget
--   Circle canvas widget with draggable dot to set distortion direction; centre = no effect
--   1-point and 2-point mode: second orange dot adds independent vanishing point
--   Plane selector (XY / XZ / YZ) maps widget axes to model space
--   Linear and exponential falloff modes
--   Touch support for the canvas widget
-
-### 0.6.0 (2026-02-10)
-
--   Added importable deformation settings to reuse presets across STLs
--   Added on-screen axis gizmo with X/Y/Z labels
--   Added multi-axis selection for axis-based deformations (twist, bend, ripple, hyper)
--   Improved Menger sponge, tessellation range, settings export, and UI/camera performance
--   Fixed shading issues by ensuring valid vertex normals, plus assorted robustness fixes
-
-### 0.5.0 (2026-02-08)
-
--   Updated GUI and camera behaviour
--   Fixed P0, P1, P3, and P4 issue sets
-
-### 0.4.0 (2025-10-28)
-
--   Added settings workflow groundwork and Web Worker processing
--   General refinements and cleanup
-
-### 0.3.0 (2025-10-27)
-
--   Initial autoloader workflow
-
-### 0.2.0 (2025-10-06)
-
--   Bug fixes and iterative improvements
-
-### 0.1.0 (2025-10-04)
-
--   Initial project scaffold and documentation
+Release notes for every version are on the [Changelog](changelog.md) page.
 
 ## Contributing
 

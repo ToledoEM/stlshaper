@@ -13,6 +13,7 @@ exclude_docs = "overrides/"
 
 nav = [
   { "Documentation" = "index.md" },
+  { "Changelog" = "changelog.md" },
 ]
 
 [project.extra]
@@ -57,4 +58,7 @@ toc.permalink = true
 pymdownx.details = {}
 pymdownx.highlight.anchor_linenums = true
 pymdownx.inlinehilite = {}
+# docs/changelog.md pulls in the root changelog.md, so the release notes have
+# one source. check_paths fails the build if the file goes missing.
+pymdownx.snippets = { base_path = ["."], check_paths = true }
 pymdownx.superfences = {}
