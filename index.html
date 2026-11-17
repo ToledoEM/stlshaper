@@ -1,0 +1,1369 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>STLShaper - STL Deformation Tool</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" />
+        <script data-goatcounter="https://etoledo.goatcounter.com/count"
+          async src="//gc.zgo.at/count.js"></script>
+        <style>
+            :root {
+                --bg-page: #262626;
+                --bg-ui: #222;
+                --bg-control: #333;
+                --bg-status: #444;
+                --bg-input: #222;
+                --bg-select: #444;
+                --bg-btn: #555;
+                --bg-btn-hover: #666;
+                --text-main: #ccc;
+                --text-stats: #bbb;
+                --accent: #6cf;
+                --border: #555;
+                --bg-canvas: #333;
+            }
+
+            [data-theme="light"] {
+                --bg-page: #f0f0f0;
+                --bg-ui: #ffffff;
+                --bg-control: #f4f4f4;
+                --bg-status: #e8e8e8;
+                --bg-input: #fff;
+                --bg-select: #eee;
+                --bg-btn: #ddd;
+                --bg-btn-hover: #ccc;
+                --text-main: #222;
+                --text-stats: #444;
+                --accent: #2a6fa8;
+                --border: #ccc;
+                --bg-canvas: #d0d0d0;
+            }
+
+            body {
+                margin: 0;
+                background: var(--bg-page);
+                color: var(--text-main);
+                font-family: Arial, "Noto Sans", "PingFang SC", "Hiragino Sans", "Malgun Gothic", sans-serif;
+                position: relative;
+                height: 100vh;
+                overflow: hidden;
+            }
+
+            #topbar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 44px;
+                background: var(--bg-ui);
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                padding: 0 16px;
+                z-index: 1001;
+                gap: 12px;
+            }
+
+            #topbar-title {
+                font-weight: bold;
+                font-size: 1em;
+                flex: 1;
+                min-width: 0;
+                color: var(--text-main);
+            }
+
+            .topbar-btn {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                padding: 6px 12px;
+                font-size: 0.85em;
+                background: var(--bg-btn);
+                color: var(--text-main);
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+
+            .topbar-btn:hover:not(:disabled) {
+                background: var(--bg-btn-hover);
+            }
+
+            .topbar-btn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            #topbar a {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 32px;
+                height: 32px;
+                color: var(--text-stats);
+                text-decoration: none;
+            }
+
+            #topbar a:hover {
+                color: var(--accent);
+            }
+
+            #ui {
+                position: absolute;
+                top: 54px;
+                left: 10px;
+                background: var(--bg-ui);
+                padding: 20px;
+                border-radius: 4px;
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                width: 300px;
+                max-height: calc(100vh - 64px);
+                overflow-y: auto;
+                overscroll-behavior: contain;
+            }
+
+            #ui > * {
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            #ui input[type="file"] {
+                margin-bottom: 5px;
+            }
+
+            #ui label {
+                display: block;
+                margin: 3px 0;
+                cursor: pointer;
+                font-size: 0.9em;
+            }
+
+            .deform-controls {
+                background: var(--bg-control);
+                padding: 8px;
+                border-radius: 3px;
+                margin: 5px 0;
+            }
+
+            .deform-controls label {
+                font-size: 0.85em;
+            }
+
+            .deform-controls input[type="range"] {
+                width: 100%;
+                margin: 3px 0;
+            }
+
+            .deform-controls select {
+                width: 100%;
+                padding: 4px;
+                background: var(--bg-select);
+                color: var(--text-main);
+                border: 1px solid var(--border);
+                border-radius: 3px;
+            }
+
+            /* Value readouts. Label text sits in data-i18n spans and keeps the
+               plain label style; "Points:" was always styled as a readout. */
+            .deform-controls span:not([data-i18n]),
+            .deform-controls span[data-i18n="param.points"] {
+                float: right;
+                color: var(--accent);
+                font-weight: bold;
+            }
+
+            #status {
+                height: 70px;
+                line-height: 14px;
+                padding: 5px;
+                background: var(--bg-status);
+                border-radius: 3px;
+                text-align: center;
+                font-size: 0.9em;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #progressContainer {
+                display: none;
+            }
+
+            #progressBar {
+                width: 100%;
+                height: 8px;
+                background: var(--bg-control);
+                border-radius: 4px;
+                overflow: hidden;
+            }
+
+            #progressFill {
+                height: 100%;
+                background: var(--accent);
+                width: 0%;
+                transition: width 0.3s ease;
+            }
+
+            button {
+                padding: 8px;
+                background: var(--bg-btn);
+                color: var(--text-main);
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+
+            button:hover:not(:disabled) {
+                background: var(--bg-btn-hover);
+            }
+
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            #container {
+                width: 100%;
+                height: 100%;
+                position: absolute;
+                top: 0;
+                left: 0;
+                z-index: 1;
+            }
+
+            /* Pinned to the bottom, clearing the 300px #ui panel on the left. */
+            #chainBar {
+                position: absolute;
+                bottom: 10px;
+                left: 320px;
+                right: 10px;
+                z-index: 1000;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-wrap: wrap;
+                padding: 8px 10px;
+                background: var(--bg-ui);
+                border-radius: 4px;
+                font-size: 0.85em;
+            }
+
+            #chainLabel {
+                color: var(--text-stats);
+                font-weight: bold;
+            }
+
+            .chain-slot {
+                min-width: 110px;
+                background: var(--bg-control);
+                border: 1px solid var(--border);
+            }
+
+            .chain-slot.active {
+                border-color: var(--accent);
+                color: var(--accent);
+            }
+
+            .chain-slot.filled {
+                background: var(--bg-btn);
+            }
+
+            #stats {
+                padding: 6px;
+                background: var(--bg-control);
+                border-radius: 3px;
+                font-size: 0.8em;
+                color: var(--text-stats);
+                line-height: 1.3em;
+            }
+
+            #scale-prompt {
+                display: none;
+                position: absolute;
+                top: 14px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 2000;
+                background: var(--bg-page);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 10px 16px;
+                color: var(--text-main);
+                font-size: 0.85em;
+                text-align: center;
+                white-space: nowrap;
+            }
+            #scale-prompt span {
+                display: block;
+                margin-bottom: 8px;
+                color: var(--text-stats);
+            }
+            #scale-prompt button {
+                margin: 0 4px;
+                padding: 4px 10px;
+                background: var(--bg-control);
+                border: 1px solid var(--border);
+                border-radius: 3px;
+                color: var(--text-main);
+                cursor: pointer;
+                font-size: 0.9em;
+            }
+            #scale-prompt button:hover {
+                background: var(--bg-status);
+            }
+
+            #githubLink {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                margin-right: 5px;
+                color: var(--text-stats);
+                text-decoration: none;
+                line-height: 20px;
+            }
+
+            #githubLink:hover {
+                color: var(--accent);
+            }
+
+            #langPicker {
+                padding: 4px 8px;
+            }
+
+            #langSelect {
+                background: transparent;
+                color: inherit;
+                border: none;
+                font-size: inherit;
+                cursor: pointer;
+            }
+
+            #langSelect option {
+                background: var(--bg-ui);
+                color: var(--text-main);
+            }
+
+            #themeToggle {
+                padding: 6px 10px;
+                font-size: 1.1em;
+                line-height: 1;
+            }
+
+            #welcomeOverlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.6);
+                z-index: 2000;
+                align-items: center;
+                justify-content: center;
+            }
+
+            #welcomeModal {
+                background: var(--bg-ui);
+                color: var(--text-main);
+                border-radius: 12px;
+                padding: 30px;
+                max-width: 500px;
+                max-height: 80vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+                position: relative;
+            }
+
+            #welcomeClose {
+                position: absolute;
+                top: 12px;
+                right: 12px;
+                width: 32px;
+                height: 32px;
+                padding: 0;
+                background: transparent;
+                color: var(--text-stats);
+                font-size: 24px;
+                line-height: 1;
+                border: none;
+                cursor: pointer;
+            }
+
+            #welcomeClose:hover {
+                color: var(--accent);
+                background: transparent;
+            }
+
+            #welcomeModal h2 {
+                margin: 0 0 8px 0;
+                font-size: 1.6em;
+                color: var(--text-main);
+            }
+
+            #welcomeModal > p {
+                margin: 0 0 20px 0;
+                font-size: 0.95em;
+                color: var(--text-stats);
+                line-height: 1.5;
+            }
+
+            .modal-section {
+                margin: 20px 0 10px 0;
+                font-size: 0.8em;
+                font-weight: bold;
+                color: var(--accent);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            #welcomeModal ol,
+            #welcomeModal ul {
+                margin: 8px 0;
+                padding-left: 20px;
+                font-size: 0.9em;
+                line-height: 1.6;
+                color: var(--text-main);
+            }
+
+            #welcomeModal li {
+                margin: 4px 0;
+            }
+
+            #welcomeFooter {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 25px;
+                padding-top: 15px;
+                border-top: 1px solid var(--border);
+            }
+
+            #welcomeFooter label {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin: 0;
+                font-size: 0.85em;
+                cursor: pointer;
+            }
+
+            #dontShowAgain {
+                cursor: pointer;
+                width: 16px;
+                height: 16px;
+            }
+
+            #welcomeGotIt {
+                padding: 8px 20px;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="topbar">
+            <span id="topbar-title">STLShaper</span>
+            <button id="loadFileBtn" class="topbar-btn"><i class="bi bi-box-arrow-in-down"></i> <span data-i18n="topbar.load">Load STL</span></button>
+            <input type="file" id="fileInput" accept=".stl" style="display: none" />
+            <button id="exportBtn" class="topbar-btn" disabled><i class="bi bi-box-arrow-down"></i> <span data-i18n="topbar.export">Export STL</span></button>
+            <button id="exportSettingsBtn" class="topbar-btn" disabled><i class="bi bi-balloon"></i> <span data-i18n="topbar.exportSettings">Export Settings</span></button>
+            <button id="importSettingsBtn" class="topbar-btn"><i class="bi bi-filetype-json"></i> <span data-i18n="topbar.importSettings">Import Settings</span></button>
+            <input type="file" id="importSettingsInput" accept=".json,application/json" style="display: none" />
+            <button id="docsBtn" class="topbar-btn"><i class="bi bi-file-richtext"></i> <span data-i18n="topbar.docs">Documentation</span></button>
+            <label id="langPicker" class="topbar-btn" title="Language" data-i18n-title="topbar.language">
+                <i class="bi bi-translate"></i>
+                <select id="langSelect" aria-label="Language">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="zh">中文</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </label>
+            <button id="themeToggle" class="topbar-btn">☀️</button>
+            <a href="https://github.com/ToledoEM/stlshaper" target="_blank" id="githubLink" title="STLShaper on GitHub" data-i18n-title="topbar.github">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+            </a>
+        </div>
+
+        <div id="ui">
+            <div id="status" data-i18n="status.ready">Ready to load STL.</div>
+
+            <div id="progressContainer" style="display: none">
+                <div
+                    id="progressBar"
+                    style="
+                        width: 100%;
+                        height: 8px;
+                        background: #333;
+                        border-radius: 4px;
+                        overflow: hidden;
+                    "
+                >
+                    <div
+                        id="progressFill"
+                        style="
+                            height: 100%;
+                            background: #6cf;
+                            width: 0%;
+                            transition: width 0.3s ease;
+                        "
+                    ></div>
+                </div>
+            </div>
+
+            <div>
+                <strong data-i18n="panel.deformType">Deformation Type:</strong>
+                <label
+                    ><input type="radio" name="type" value="noise" checked /> <span data-i18n="deform.noise">Noise</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="sine" /> <span data-i18n="deform.sine">Sine Wave</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="pixel" /> <span data-i18n="deform.pixel">Pixelate</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="idw" /> <span data-i18n="deform.idw">IDW Shepard</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="inflate" /> <span data-i18n="deform.inflate">Inflate</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="twist" /> <span data-i18n="deform.twist">Twist</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="bend" /> <span data-i18n="deform.bend">Bend</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="ripple" /> <span data-i18n="deform.ripple">Ripple</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="warp" /> <span data-i18n="deform.warp">Warp</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="hyper" /> <span data-i18n="deform.hyper">Hyperbolic Stretch</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="tessellate" /> <span data-i18n="deform.tessellate">Tessellate</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="boundary" /> <span data-i18n="deform.boundary">Boundary Disruption</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="menger" /> <span data-i18n="deform.menger">Menger Sponge</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="spherize" /> <span data-i18n="deform.spherize">Spherize</span></label
+                >
+                <label
+                    ><input type="radio" name="type" value="persp" /> <span data-i18n="deform.persp">Perspective Distortion</span></label
+                >
+            </div>
+
+            <div id="noiseControls" class="deform-controls">
+                <strong data-i18n="settings.noise">Noise Settings:</strong>
+                <label>
+                    <span data-i18n="param.type">Type:</span>
+                    <select id="noiseType">
+                        <option value="white" data-i18n="opt.whiteNoise">White Noise</option>
+                        <option value="perlin" data-i18n="opt.perlin">Perlin</option>
+                    </select>
+                </label>
+                <label>
+                    <span data-i18n="param.seed">Seed:</span> <span id="noiseSeedVal">0</span>
+                    <input
+                        type="number"
+                        id="noiseSeed"
+                        min="0"
+                        max="10000"
+                        value="0"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.intensity">Intensity:</span> <span id="noiseIntensityVal">1.5</span>
+                    <input
+                        type="range"
+                        id="noiseIntensity"
+                        min="0.1"
+                        max="5"
+                        value="1.5"
+                        step="0.1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.scale">Scale:</span> <span id="noiseScaleVal">0.02</span>
+                    <input
+                        type="range"
+                        id="noiseScale"
+                        min="0.005"
+                        max="0.5"
+                        value="0.02"
+                        step="0.005"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.axis">Axis:</span>
+                    <select id="noiseAxis">
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="sineControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.sine">Sine Wave Settings:</strong>
+                <label>
+                    <span data-i18n="param.amplitude">Amplitude:</span> <span id="sineAmpVal">15</span>
+                    <input
+                        type="range"
+                        id="sineAmp"
+                        min="1"
+                        max="100"
+                        value="15"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.frequency">Frequency:</span> <span id="sineFreqVal">0.05</span>
+                    <input
+                        type="range"
+                        id="sineFreq"
+                        min="0.01"
+                        max="0.2"
+                        value="0.05"
+                        step="0.01"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.driverAxis">Driver Axis (input):</span>
+                    <select id="sineDriverAxis">
+                        <option value="x" data-i18n="opt.xAxis">X Axis</option>
+                        <option value="y" data-i18n="opt.yAxis">Y Axis</option>
+                        <option value="z" data-i18n="opt.zAxis">Z Axis</option>
+                    </select>
+                </label>
+                <label>
+                    <span data-i18n="param.dispAxis">Displacement Axis (output):</span>
+                    <select id="sineDispAxis">
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="pixelControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.pixel">Pixelate Settings:</strong>
+                <label>
+                    <span data-i18n="param.voxelSize">Voxel Size:</span> <span id="pixelSizeVal">5</span>
+                    <input
+                        type="range"
+                        id="pixelSize"
+                        min="0.5"
+                        max="50"
+                        value="5"
+                        step="0.5"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.axisLock">Axis Lock:</span>
+                    <select id="pixelAxis">
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                    </select>
+                </label>
+            </div>
+
+            <div id="idwControls" class="deform-controls" style="display: none">
+                <strong data-i18n="settings.idw">IDW Shepard Settings:</strong>
+                <label>
+                    <span data-i18n="param.numPoints">Number of Points:</span> <span id="idwNumPointsVal">8</span>
+                    <input
+                        type="range"
+                        id="idwNumPoints"
+                        min="3"
+                        max="50"
+                        value="8"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.seed">Seed:</span> <span id="idwSeedVal">0</span>
+                    <input
+                        type="number"
+                        id="idwSeed"
+                        min="0"
+                        max="10000"
+                        value="0"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.weight">Weight:</span> <span id="idwWeightVal">2.0</span>
+                    <input
+                        type="range"
+                        id="idwWeight"
+                        min="-10"
+                        max="10"
+                        value="2.0"
+                        step="0.1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.power">Power:</span> <span id="idwPowerVal">2.0</span>
+                    <input
+                        type="range"
+                        id="idwPower"
+                        min="0.5"
+                        max="6.0"
+                        value="2.0"
+                        step="0.1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.globalScale">Global Scale:</span> <span id="idwScaleVal">2.0</span>
+                    <input
+                        type="range"
+                        id="idwScale"
+                        min="0.1"
+                        max="10.0"
+                        value="2.0"
+                        step="0.1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.samplingRays">Sampling Rays:</span> <span id="idwRaysVal">6</span>
+                    <input
+                        type="range"
+                        id="idwRays"
+                        min="2"
+                        max="10"
+                        value="6"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.manualPoints">Manual Control Points:</span>
+                    <input type="checkbox" id="idwManualPoints" />
+                </label>
+                <label>
+                    <span data-i18n="param.pointsInput">Points (x,y,z per line):</span>
+                    <textarea
+                        id="idwPointsInput"
+                        rows="4"
+                        style="
+                            width: 100%;
+                            background: #222;
+                            color: #ccc;
+                            border: 1px solid #555;
+                            border-radius: 3px;
+                        "
+                    ></textarea>
+                </label>
+            </div>
+
+            <div
+                id="inflateControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.inflate">Inflate Settings:</strong>
+                <label>
+                    <span data-i18n="param.amount">Amount:</span> <span id="inflateAmountVal">0.6</span>
+                    <input
+                        type="range"
+                        id="inflateAmount"
+                        min="0"
+                        max="2"
+                        value="0.6"
+                        step="0.05"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="twistControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.twist">Twist Settings:</strong>
+                <label>
+                    <span data-i18n="param.angleDeg">Angle (deg):</span> <span id="twistAngleVal">180</span>
+                    <input
+                        type="range"
+                        id="twistAngle"
+                        min="-360"
+                        max="360"
+                        value="180"
+                        step="5"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.axis">Axis:</span>
+                    <select id="twistAxis">
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" selected data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="bendControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.bend">Bend Settings:</strong>
+                <label>
+                    <span data-i18n="param.strength">Strength:</span> <span id="bendStrengthVal">0.8</span>
+                    <input
+                        type="range"
+                        id="bendStrength"
+                        min="0"
+                        max="2"
+                        value="0.8"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.axis">Axis:</span>
+                    <select id="bendAxis">
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" selected data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="rippleControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.ripple">Ripple Settings:</strong>
+                <label>
+                    <span data-i18n="param.amplitude">Amplitude:</span> <span id="rippleAmpVal">4</span>
+                    <input
+                        type="range"
+                        id="rippleAmp"
+                        min="0"
+                        max="20"
+                        value="4"
+                        step="0.5"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.frequency">Frequency:</span> <span id="rippleFreqVal">0.3</span>
+                    <input
+                        type="range"
+                        id="rippleFreq"
+                        min="0.05"
+                        max="2.0"
+                        value="0.3"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.axis">Axis:</span>
+                    <select id="rippleAxis">
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" selected data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="warpControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.warp">Warp Settings:</strong>
+                <label>
+                    <span data-i18n="param.strength">Strength:</span> <span id="warpStrengthVal">1.0</span>
+                    <input
+                        type="range"
+                        id="warpStrength"
+                        min="0"
+                        max="3"
+                        value="1.0"
+                        step="0.1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.scale">Scale:</span> <span id="warpScaleVal">0.2</span>
+                    <input
+                        type="range"
+                        id="warpScale"
+                        min="0.01"
+                        max="1.0"
+                        value="0.2"
+                        step="0.01"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="hyperControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.hyper">Hyperbolic Stretch Settings:</strong>
+                <label>
+                    <span data-i18n="param.amount">Amount:</span> <span id="hyperAmountVal">0.6</span>
+                    <input
+                        type="range"
+                        id="hyperAmount"
+                        min="-2"
+                        max="2"
+                        value="0.6"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.axis">Axis:</span>
+                    <select id="hyperAxis">
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" selected data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                    </select>
+                </label>
+            </div>
+
+            <div
+                id="tessellateControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.tessellate">Tessellation Settings:</strong>
+                <label>
+                    <span data-i18n="param.subdivisions">Subdivisions:</span> <span id="tessellateStepsVal">1</span>
+                    <input
+                        type="range"
+                        id="tessellateSteps"
+                        min="1"
+                        max="3"
+                        value="1"
+                        step="1"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="boundaryControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.boundary">Boundary Disruption Settings:</strong>
+                <label>
+                    <span data-i18n="param.threshold">Threshold:</span> <span id="boundaryThresholdVal">0.08</span>
+                    <input
+                        type="range"
+                        id="boundaryThreshold"
+                        min="0.01"
+                        max="0.3"
+                        value="0.08"
+                        step="0.01"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.jitter">Jitter:</span> <span id="boundaryJitterVal">2</span>
+                    <input
+                        type="range"
+                        id="boundaryJitter"
+                        min="0"
+                        max="10"
+                        value="2"
+                        step="0.5"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="mengerControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.menger">Menger Sponge Settings:</strong>
+                <label>
+                    <span data-i18n="param.iterations">Iterations:</span> <span id="mengerIterationsVal">1</span>
+                    <input
+                        type="range"
+                        id="mengerIterations"
+                        min="1"
+                        max="3"
+                        value="1"
+                        step="1"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.keepRatio">Keep Ratio:</span> <span id="mengerKeepVal">0.7</span>
+                    <input
+                        type="range"
+                        id="mengerKeep"
+                        min="0.3"
+                        max="1.0"
+                        value="0.7"
+                        step="0.05"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="spherizeControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.spherize">Spherize Settings:</strong>
+                <label>
+                    <span data-i18n="param.factor">Factor:</span> <span id="spherizeFactorVal">0.5</span>
+                    <input
+                        type="range"
+                        id="spherizeFactor"
+                        min="-1"
+                        max="1"
+                        value="0.5"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.radiusAuto">Radius (0=auto):</span> <span id="spherizeRadiusVal">0</span>
+                    <input
+                        type="range"
+                        id="spherizeRadius"
+                        min="0"
+                        max="200"
+                        value="0"
+                        step="1"
+                    />
+                </label>
+            </div>
+
+            <div
+                id="perspControls"
+                class="deform-controls"
+                style="display: none"
+            >
+                <strong data-i18n="settings.persp">Perspective Distortion Settings:</strong>
+                <label
+                    style="
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                    "
+                >
+                    <span data-i18n="param.points">Points:</span>
+                    <label
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 3px;
+                            font-size: 0.85em;
+                        "
+                    >
+                        <input type="radio" name="vpMode" value="1" checked />
+                        <span data-i18n="param.onePoint">1-point</span>
+                    </label>
+                    <label
+                        style="
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 3px;
+                            font-size: 0.85em;
+                        "
+                    >
+                        <input type="radio" name="vpMode" value="2" /> <span data-i18n="param.twoPoint">2-point</span>
+                    </label>
+                </label>
+                <div
+                    style="
+                        display: flex;
+                        justify-content: center;
+                        margin: 8px 0;
+                    "
+                >
+                    <canvas
+                        id="perspCanvas"
+                        width="120"
+                        height="120"
+                        style="
+                            cursor: crosshair;
+                            border-radius: 50%;
+                            background: #222;
+                            display: block;
+                        "
+                    ></canvas>
+                </div>
+                <label>
+                    <span data-i18n="param.plane">Plane:</span>
+                    <select id="perspPlane">
+                        <option value="XY" selected data-i18n="opt.xyTop">XY (top view)</option>
+                        <option value="XZ" data-i18n="opt.xzFront">XZ (front view)</option>
+                        <option value="YZ" data-i18n="opt.yzSide">YZ (side view)</option>
+                    </select>
+                </label>
+                <label>
+                    <span data-i18n="param.strength">Strength:</span> <span id="perspStrengthVal">0.5</span>
+                    <input
+                        type="range"
+                        id="perspStrength"
+                        min="0"
+                        max="3"
+                        value="0.5"
+                        step="0.05"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.falloff">Falloff:</span>
+                    <select id="perspMode">
+                        <option value="linear" selected data-i18n="opt.linear">Linear</option>
+                        <option value="exponential" data-i18n="opt.exponential">Exponential</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="deform-controls">
+                <strong data-i18n="panel.preprocess">Preprocess:</strong>
+                <label>
+                    <span data-i18n="param.decimate">Decimate (% kept):</span> <span id="decimateVal">100</span>
+                    <input
+                        type="range"
+                        id="decimate"
+                        min="10"
+                        max="100"
+                        value="100"
+                        step="5"
+                    />
+                </label>
+                <label>
+                    <span data-i18n="param.mergeEps">Vertex Merge Epsilon:</span> <span id="mergeVal">0.0</span>
+                    <input
+                        type="range"
+                        id="mergeEpsilon"
+                        min="0"
+                        max="2"
+                        value="0"
+                        step="0.05"
+                    />
+                </label>
+            </div>
+
+            <div style="display: flex; gap: 8px; align-items: center">
+                <button id="processBtn" disabled style="flex: 1">
+                    <span data-i18n="btn.generate">Generate Deformation</span>
+                </button>
+                <button id="clearBtn" style="flex: 0 0 auto"><span data-i18n="btn.clear">Clear</span></button>
+            </div>
+
+            <div>
+                <strong data-i18n="panel.viewMode">View Mode:</strong>
+                <label
+                    ><input type="checkbox" id="toggleView" checked /> <span data-i18n="view.showDeformed">Show Deformed Model</span></label
+                >
+                <label>
+                    <span data-i18n="view.renderMode">Render Mode:</span>
+                    <select id="renderMode">
+                        <option value="wireframe" data-i18n="opt.wireframe">Wireframe</option>
+                        <option value="solid" selected data-i18n="opt.solid">Solid 3D</option>
+                        <option value="both" data-i18n="opt.both">Wireframe + Solid</option>
+                    </select>
+                </label>
+                <button id="resetViewBtn" style="margin-top: 6px">
+                    <span data-i18n="btn.resetView">Reset View</span>
+                </button>
+            </div>
+
+            <div id="stats" data-i18n="stats.na">Stats: N/A</div>
+        </div>
+
+        <div id="container"></div>
+
+        <div id="chainBar">
+            <span id="chainLabel" data-i18n="chain.label">Chain:</span>
+            <button type="button" class="chain-slot" id="chainSlot0" data-slot="0" data-i18n="chain.empty" data-i18n-vars='{"n":1}'>
+                1: empty
+            </button>
+            <button type="button" class="chain-slot" id="chainSlot1" data-slot="1" data-i18n="chain.empty" data-i18n-vars='{"n":2}'>
+                2: empty
+            </button>
+            <button type="button" class="chain-slot" id="chainSlot2" data-slot="2" data-i18n="chain.empty" data-i18n-vars='{"n":3}'>
+                3: empty
+            </button>
+            <button type="button" id="chainSetBtn" title="Put the currently selected deformation into the active slot" data-i18n-title="chain.setTitle" data-i18n="chain.set">Set Slot</button>
+            <button type="button" id="chainClearSlotBtn" title="Empty the active slot" data-i18n-title="chain.clearSlotTitle" data-i18n="chain.clearSlot">Clear Slot</button>
+            <button type="button" id="chainCalcBtn" disabled data-i18n="chain.calc">Calculate Output</button>
+            <button type="button" id="chainClearBtn" data-i18n="chain.clear">Clear Chain</button>
+        </div>
+
+        <div id="scale-prompt">
+            <span data-i18n="scale.prompt">Model is very large — scale down for better viewing?</span>
+            <button onclick="applyModelScale(0.1)">10%</button>
+            <button onclick="applyModelScale(0.2)">20%</button>
+            <button onclick="applyModelScale(0.5)">50%</button>
+            <button onclick="applyModelScale(null)" data-i18n="scale.auto">Auto</button>
+        </div>
+
+        <div id="welcomeOverlay">
+            <div id="welcomeModal">
+                <button id="welcomeClose">✕</button>
+                <h2 data-i18n="welcome.title">Welcome to STLShaper</h2>
+                <p data-i18n="welcome.lead">Transform any STL directly in your browser — no install, no cloud.</p>
+
+                <h3 class="modal-section" data-i18n="welcome.quickStart">QUICK START</h3>
+                <ol>
+                    <li data-i18n="welcome.step1">Load an STL file using the file picker.</li>
+                    <li data-i18n="welcome.step2">Choose a deformation type from the panel.</li>
+                    <li data-i18n="welcome.step3">Adjust parameters and click Generate Deformation.</li>
+                    <li data-i18n="welcome.step4">Export your result as STL.</li>
+                </ol>
+
+                <h3 class="modal-section" data-i18n="welcome.newIn">NEW IN 0.9.0 — September 2026</h3>
+                <ul>
+                    <li><strong data-i18n="welcome.new1Title">Deformation chaining</strong><span data-i18n="welcome.new1Body"> — Compose up to three deformations in the bar along the bottom</span></li>
+                    <li><strong data-i18n="welcome.new2Title">Perlin noise</strong><span data-i18n="welcome.new2Body"> — Coherent noise field, plus a seed control</span></li>
+                    <li><strong data-i18n="welcome.new3Title">Reproducible IDW recipes</strong><span data-i18n="welcome.new3Body"> — Settings exports record the control points actually used</span></li>
+                    <li><strong data-i18n="welcome.new4Title">Test suite</strong><span data-i18n="welcome.new4Body"> — 559 tests guarding against regressions</span></li>
+                </ul>
+
+                <div id="welcomeFooter">
+                    <label><input type="checkbox" id="dontShowAgain" /> <span data-i18n="welcome.dontShow">Don't show this again</span></label>
+                    <button id="welcomeGotIt" data-i18n="welcome.gotIt">Got it</button>
+                </div>
+            </div>
+        </div>
+
+        <script type="module">
+            import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.121.1/build/three.module.js";
+            import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/controls/OrbitControls.js";
+            import { STLLoader } from "https://cdn.jsdelivr.net/npm/three@0.121.1/examples/jsm/loaders/STLLoader.js";
+
+            window.THREE = THREE;
+            window.OrbitControls = OrbitControls;
+            window.STLLoader = STLLoader;
+
+            const loadScript = (src, type) =>
+                new Promise((resolve, reject) => {
+                    const script = document.createElement("script");
+                    if (type) script.type = type;
+                    script.src = src;
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.body.appendChild(script);
+                });
+
+            // FileSaver is a classic script and defines a global.
+            await loadScript("libraries/FileSaver.min.js");
+            // main.js carries `export` statements so it can be imported by the
+            // test suite, which makes it a module — it must load as one here.
+            await loadScript("main.js", "module");
+        </script>
+
+        <script src="i18n.js"></script>
+        <script>
+            // Language dropdown; translates the page if a language was saved.
+            if (window.STLI18N) window.STLI18N.mount();
+
+            // Load STL file from banner button
+            document.getElementById('loadFileBtn').addEventListener('click', () => {
+                document.getElementById('fileInput').click();
+            });
+
+            // Documentation button
+            document.getElementById('docsBtn').addEventListener('click', () => {
+                window.open('https://toledoem.github.io/stlshaper/documentation/', '_blank');
+            });
+
+            // Initialize theme from localStorage
+            window.updateCanvasBackground = function(theme) {
+                if (window.scene) {
+                    const color = theme === 'light' ? 0xd0d0d0 : 0x333333;
+                    window.scene.background = new window.THREE.Color(color);
+                }
+            };
+
+            (function() {
+                const saved = localStorage.getItem('stlshaper_theme') || 'dark';
+                document.documentElement.setAttribute('data-theme', saved);
+                updateThemeIcon(saved);
+
+                document.getElementById('themeToggle').addEventListener('click', () => {
+                    const current = document.documentElement.getAttribute('data-theme');
+                    const next = current === 'dark' ? 'light' : 'dark';
+                    document.documentElement.setAttribute('data-theme', next);
+                    localStorage.setItem('stlshaper_theme', next);
+                    updateThemeIcon(next);
+                    window.updateCanvasBackground(next);
+                });
+
+                function updateThemeIcon(theme) {
+                    document.getElementById('themeToggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+                }
+            })();
+
+            // Initialize welcome modal
+            (function() {
+                const overlay = document.getElementById('welcomeOverlay');
+                const welcomed = localStorage.getItem('stlshaper_welcomed');
+                if (!welcomed) overlay.style.display = 'flex';
+
+                document.getElementById('welcomeGotIt').addEventListener('click', () => {
+                    if (document.getElementById('dontShowAgain').checked)
+                        localStorage.setItem('stlshaper_welcomed', 'true');
+                    overlay.style.display = 'none';
+                });
+
+                document.getElementById('welcomeClose').addEventListener('click', () => {
+                    overlay.style.display = 'none';
+                });
+            })();
+        </script>
+    </body>
+</html>

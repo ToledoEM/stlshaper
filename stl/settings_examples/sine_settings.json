@@ -1,0 +1,15 @@
+{
+  "originalFileName": "3dbenchy.stl",
+  "deformationType": "sine",
+  "settings": {
+    "amplitude": 7,
+    "frequency": 0.05,
+    "driverAxis": "z",
+    "dispAxis": "all"
+  },
+  "preprocess": {
+    "decimate": 100,
+    "mergeEpsilon": 0
+  },
+  "exportDateTime": "2026-05-01T21:09:41.591Z"
+}
