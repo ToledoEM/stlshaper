@@ -14,6 +14,11 @@ export default [
     },
   },
   {
+    // Classic script: no module syntax, attaches its API to globalThis.
+    files: ['i18n.js'],
+    languageOptions: { ecmaVersion: 2022, sourceType: 'script', globals: globals.browser },
+  },
+  {
     files: ['worker.js'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: globals.worker },
   },
