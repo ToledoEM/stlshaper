@@ -410,3 +410,78 @@ describe("worker pool progress reporting", () => {
     expect(() => pool.onProgress(1, 4)).not.toThrow();
   });
 });
+
+describe("load and generate error handlers", () => {
+  beforeEach(() => stubRenderer());
+  afterEach(() => { restore(); vi.restoreAllMocks(); });
+
+  it("reports a file that fails to parse", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    bootWith();
+    const realReader = window.FileReader;
+    // A reader that hands back no buffer: the STL parser throws on it.
+    window.FileReader = class {
+      readAsArrayBuffer() {
+        this.result = null;
+        setTimeout(() => this.onload(), 0);
+      }
+    };
+    try {
+      const input = document.getElementById("fileInput");
+      Object.defineProperty(input, "files", { value: [new window.File(["x"], "bad.stl")], configurable: true });
+      input.dispatchEvent(new window.Event("change", { bubbles: true }));
+      await vi.waitFor(() =>
+        expect(document.getElementById("status").textContent).toBe(
+          globalThis.t("status.errorPrefix", { msg: globalThis.t("status.parseError") })
+        )
+      );
+    } finally {
+      window.FileReader = realReader;
+      err.mockRestore();
+    }
+  });
+
+  it("reports a failure to draw the generated model", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    bootWith();
+    selectType("tessellate");
+    // generateCurrent succeeds; the scene update after it reads the render mode.
+    Object.defineProperty(document.getElementById("renderMode"), "value", {
+      get() { throw new Error("render mode unavailable"); },
+      configurable: true,
+    });
+    await document.getElementById("processBtn").onclick();
+    expect(document.getElementById("status").textContent).toBe(
+      globalThis.t("status.errorPrefix", { msg: globalThis.t("status.genError") })
+    );
+    err.mockRestore();
+  });
+});
+
+describe("worker progress in the status line", () => {
+  afterEach(() => { restore(); vi.restoreAllMocks(); });
+
+  it("shows the percentage while worker chunks complete", async () => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    const realWorker = globalThis.Worker;
+    // Echoes each chunk back unchanged, as a worker that finished would.
+    globalThis.Worker = class {
+      postMessage(m) {
+        setTimeout(() => this.onmessage({
+          data: { type: "result", success: true, vertices: m.vertices, chunkId: m.chunkId, workerId: m.workerId },
+        }), 0);
+      }
+      terminate() {}
+    };
+    const t = vi.spyOn(globalThis, "t");
+    try {
+      stubRenderer();
+      bootWith();
+      selectType("inflate");
+      await document.getElementById("processBtn").onclick();
+      expect(t).toHaveBeenCalledWith("status.processingPct", { key: "inflate", pct: 100 });
+    } finally {
+      globalThis.Worker = realWorker;
+    }
+  });
+});

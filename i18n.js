@@ -1,9 +1,11 @@
 // UI translations for STLShaper.
 //
 // A classic script, loaded before main.js, that defines globalThis.t and
-// globalThis.STLI18N. Static markup carries its key in data-i18n (text),
-// data-i18n-title (title attribute) or data-i18n-html (trusted markup from
-// this file only). main.js looks up runtime messages through t().
+// globalThis.STLI18N. Static markup carries its key in data-i18n (text) or
+// data-i18n-title (title attribute). Translations are only ever written as
+// text, never parsed as HTML: markup such as the bold lead of a welcome item
+// stays in index.html with its own key. main.js looks up runtime messages
+// through t().
 //
 // Technical terms (deformation and parameter names) are translated only where
 // the translation was found in an established localised 3D/CAD source; the
@@ -155,10 +157,14 @@
       "welcome.step3": "Adjust parameters and click Generate Deformation.",
       "welcome.step4": "Export your result as STL.",
       "welcome.newIn": "NEW IN 0.9.0 — September 2026",
-      "welcome.new1": "<strong>Deformation chaining</strong> — Compose up to three deformations in the bar along the bottom",
-      "welcome.new2": "<strong>Perlin noise</strong> — Coherent noise field, plus a seed control",
-      "welcome.new3": "<strong>Reproducible IDW recipes</strong> — Settings exports record the control points actually used",
-      "welcome.new4": "<strong>Test suite</strong> — 559 tests guarding against regressions",
+      "welcome.new1Title": "Deformation chaining",
+      "welcome.new1Body": " — Compose up to three deformations in the bar along the bottom",
+      "welcome.new2Title": "Perlin noise",
+      "welcome.new2Body": " — Coherent noise field, plus a seed control",
+      "welcome.new3Title": "Reproducible IDW recipes",
+      "welcome.new3Body": " — Settings exports record the control points actually used",
+      "welcome.new4Title": "Test suite",
+      "welcome.new4Body": " — 559 tests guarding against regressions",
       "welcome.dontShow": "Don't show this again",
       "welcome.gotIt": "Got it",
 
@@ -314,10 +320,14 @@
       "welcome.step3": "Ajusta los parámetros y pulsa Generar deformación.",
       "welcome.step4": "Exporta el resultado como STL.",
       "welcome.newIn": "NOVEDADES EN 0.9.0 — septiembre de 2026",
-      "welcome.new1": "<strong>Encadenar deformaciones</strong>: combina hasta tres deformaciones en la barra inferior",
-      "welcome.new2": "<strong>Ruido Perlin</strong>: campo de ruido coherente, con control de semilla",
-      "welcome.new3": "<strong>Recetas IDW reproducibles</strong>: los ajustes exportados guardan los puntos de control usados",
-      "welcome.new4": "<strong>Batería de pruebas</strong>: 559 pruebas contra regresiones",
+      "welcome.new1Title": "Encadenar deformaciones",
+      "welcome.new1Body": ": combina hasta tres deformaciones en la barra inferior",
+      "welcome.new2Title": "Ruido Perlin",
+      "welcome.new2Body": ": campo de ruido coherente, con control de semilla",
+      "welcome.new3Title": "Recetas IDW reproducibles",
+      "welcome.new3Body": ": los ajustes exportados guardan los puntos de control usados",
+      "welcome.new4Title": "Batería de pruebas",
+      "welcome.new4Body": ": 559 pruebas contra regresiones",
       "welcome.dontShow": "No volver a mostrar",
       "welcome.gotIt": "Entendido",
       "status.ready": "Listo para cargar un STL.",
@@ -472,10 +482,14 @@
       "welcome.step3": "调整参数，然后点击“生成变形”。",
       "welcome.step4": "将结果导出为 STL。",
       "welcome.newIn": "0.9.0 新功能 — 2026 年 9 月",
-      "welcome.new1": "<strong>变形链</strong> — 在底部栏中组合最多三个变形",
-      "welcome.new2": "<strong>柏林噪波</strong> — 连贯的噪波场，并可设置随机种",
-      "welcome.new3": "<strong>可复现的 IDW 配方</strong> — 导出的设置会记录实际使用的控制点",
-      "welcome.new4": "<strong>测试套件</strong> — 559 项测试防止回归",
+      "welcome.new1Title": "变形链",
+      "welcome.new1Body": " — 在底部栏中组合最多三个变形",
+      "welcome.new2Title": "柏林噪波",
+      "welcome.new2Body": " — 连贯的噪波场，并可设置随机种",
+      "welcome.new3Title": "可复现的 IDW 配方",
+      "welcome.new3Body": " — 导出的设置会记录实际使用的控制点",
+      "welcome.new4Title": "测试套件",
+      "welcome.new4Body": " — 559 项测试防止回归",
       "welcome.dontShow": "不再显示",
       "welcome.gotIt": "知道了",
       "status.ready": "可以加载 STL。",
@@ -630,10 +644,14 @@
       "welcome.step3": "Passe die Parameter an und klicke auf Verformung erzeugen.",
       "welcome.step4": "Exportiere das Ergebnis als STL.",
       "welcome.newIn": "NEU IN 0.9.0 – September 2026",
-      "welcome.new1": "<strong>Verformungsketten</strong> – bis zu drei Verformungen in der unteren Leiste kombinieren",
-      "welcome.new2": "<strong>Perlin-Noise</strong> – zusammenhängendes Rauschfeld mit Startwert-Regler",
-      "welcome.new3": "<strong>Reproduzierbare IDW-Rezepte</strong> – exportierte Einstellungen speichern die tatsächlich verwendeten Kontrollpunkte",
-      "welcome.new4": "<strong>Testsuite</strong> – 559 Tests schützen vor Regressionen",
+      "welcome.new1Title": "Verformungsketten",
+      "welcome.new1Body": " – bis zu drei Verformungen in der unteren Leiste kombinieren",
+      "welcome.new2Title": "Perlin-Noise",
+      "welcome.new2Body": " – zusammenhängendes Rauschfeld mit Startwert-Regler",
+      "welcome.new3Title": "Reproduzierbare IDW-Rezepte",
+      "welcome.new3Body": " – exportierte Einstellungen speichern die tatsächlich verwendeten Kontrollpunkte",
+      "welcome.new4Title": "Testsuite",
+      "welcome.new4Body": " – 559 Tests schützen vor Regressionen",
       "welcome.dontShow": "Nicht mehr anzeigen",
       "welcome.gotIt": "Verstanden",
       "status.ready": "Bereit zum Laden einer STL.",
@@ -788,10 +806,14 @@
       "welcome.step3": "Ajustez les paramètres et cliquez sur Générer la déformation.",
       "welcome.step4": "Exportez le résultat en STL.",
       "welcome.newIn": "NOUVEAU DANS 0.9.0 — septembre 2026",
-      "welcome.new1": "<strong>Chaînage de déformations</strong> : combinez jusqu'à trois déformations dans la barre du bas",
-      "welcome.new2": "<strong>Bruit de Perlin</strong> : champ de bruit cohérent, avec réglage de la graine",
-      "welcome.new3": "<strong>Recettes IDW reproductibles</strong> : les réglages exportés enregistrent les points de contrôle réellement utilisés",
-      "welcome.new4": "<strong>Suite de tests</strong> : 559 tests contre les régressions",
+      "welcome.new1Title": "Chaînage de déformations",
+      "welcome.new1Body": " : combinez jusqu'à trois déformations dans la barre du bas",
+      "welcome.new2Title": "Bruit de Perlin",
+      "welcome.new2Body": " : champ de bruit cohérent, avec réglage de la graine",
+      "welcome.new3Title": "Recettes IDW reproductibles",
+      "welcome.new3Body": " : les réglages exportés enregistrent les points de contrôle réellement utilisés",
+      "welcome.new4Title": "Suite de tests",
+      "welcome.new4Body": " : 559 tests contre les régressions",
       "welcome.dontShow": "Ne plus afficher",
       "welcome.gotIt": "Compris",
       "status.ready": "Prêt à charger un STL.",
@@ -946,10 +968,14 @@
       "welcome.step3": "パラメータを調整し、「変形を生成」をクリックします。",
       "welcome.step4": "結果を STL としてエクスポートします。",
       "welcome.newIn": "0.9.0 の新機能 — 2026 年 9 月",
-      "welcome.new1": "<strong>変形チェーン</strong> — 下部のバーで最大 3 つの変形を組み合わせ",
-      "welcome.new2": "<strong>パーリンノイズ</strong> — 連続したノイズ場とシード設定",
-      "welcome.new3": "<strong>再現可能な IDW レシピ</strong> — エクスポートした設定に実際に使った制御点を記録",
-      "welcome.new4": "<strong>テストスイート</strong> — 559 件のテストで回帰を防止",
+      "welcome.new1Title": "変形チェーン",
+      "welcome.new1Body": " — 下部のバーで最大 3 つの変形を組み合わせ",
+      "welcome.new2Title": "パーリンノイズ",
+      "welcome.new2Body": " — 連続したノイズ場とシード設定",
+      "welcome.new3Title": "再現可能な IDW レシピ",
+      "welcome.new3Body": " — エクスポートした設定に実際に使った制御点を記録",
+      "welcome.new4Title": "テストスイート",
+      "welcome.new4Body": " — 559 件のテストで回帰を防止",
       "welcome.dontShow": "今後表示しない",
       "welcome.gotIt": "OK",
       "status.ready": "STL を読み込めます。",
@@ -1104,10 +1130,14 @@
       "welcome.step3": "매개변수를 조정하고 '변형 생성'을 클릭합니다.",
       "welcome.step4": "결과를 STL로 내보냅니다.",
       "welcome.newIn": "0.9.0 새 기능 — 2026년 9월",
-      "welcome.new1": "<strong>변형 체인</strong> — 하단 바에서 최대 세 가지 변형을 조합",
-      "welcome.new2": "<strong>펄린 노이즈</strong> — 연속적인 노이즈 필드와 시드 조절",
-      "welcome.new3": "<strong>재현 가능한 IDW 레시피</strong> — 내보낸 설정에 실제 사용한 컨트롤 포인트를 기록",
-      "welcome.new4": "<strong>테스트 모음</strong> — 559개 테스트로 회귀 방지",
+      "welcome.new1Title": "변형 체인",
+      "welcome.new1Body": " — 하단 바에서 최대 세 가지 변형을 조합",
+      "welcome.new2Title": "펄린 노이즈",
+      "welcome.new2Body": " — 연속적인 노이즈 필드와 시드 조절",
+      "welcome.new3Title": "재현 가능한 IDW 레시피",
+      "welcome.new3Body": " — 내보낸 설정에 실제 사용한 컨트롤 포인트를 기록",
+      "welcome.new4Title": "테스트 모음",
+      "welcome.new4Body": " — 559개 테스트로 회귀 방지",
       "welcome.dontShow": "다시 표시하지 않기",
       "welcome.gotIt": "확인",
       "status.ready": "STL을 불러올 준비가 되었습니다.",
@@ -1194,9 +1224,6 @@
     });
     doc.querySelectorAll("[data-i18n-title]").forEach((el) => {
       el.setAttribute("title", t(el.getAttribute("data-i18n-title")));
-    });
-    doc.querySelectorAll("[data-i18n-html]").forEach((el) => {
-      el.innerHTML = t(el.getAttribute("data-i18n-html"));
     });
     if (root.document && root.document.documentElement) {
       root.document.documentElement.lang = current;

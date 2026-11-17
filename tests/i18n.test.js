@@ -38,7 +38,7 @@ describe("dictionary", () => {
   }
 
   it("every key referenced by index.html exists in English", () => {
-    const keys = [...html.matchAll(/data-i18n(?:-title|-html)?="([^"]+)"/g)].map((m) => m[1]);
+    const keys = [...html.matchAll(/data-i18n(?:-title)?="([^"]+)"/g)].map((m) => m[1]);
     expect(keys.length).toBeGreaterThan(100);
     for (const key of keys) expect(I18N.DICT.en, key).toHaveProperty([key]);
   });
@@ -51,10 +51,20 @@ describe("dictionary", () => {
 
   it("English markup text matches the dictionary, so the page reads the same before JS runs", () => {
     mountIndexHtml();
+    const norm = (s) => s.replace(/\s+/g, " ").trim();
     document.querySelectorAll("[data-i18n]").forEach((el) => {
       const vars = el.dataset.i18nVars ? JSON.parse(el.dataset.i18nVars) : undefined;
-      expect(el.textContent.replace(/\s+/g, " ").trim()).toBe(I18N.t(el.dataset.i18n, vars));
+      expect(norm(el.textContent)).toBe(norm(I18N.t(el.dataset.i18n, vars)));
     });
+  });
+
+  it("never parses a translation as HTML", () => {
+    expect(html).not.toContain("data-i18n-html");
+    for (const [lang, dict] of Object.entries(I18N.DICT)) {
+      for (const [key, text] of Object.entries(dict)) {
+        expect(text, `${lang} ${key}`).not.toMatch(/<[a-z/]/i);
+      }
+    }
   });
 });
 
@@ -88,7 +98,12 @@ describe("setLanguage", () => {
     const load = document.querySelector('#loadFileBtn [data-i18n="topbar.load"]');
     expect(load.textContent).toBe(I18N.DICT.es["topbar.load"]);
     expect(document.getElementById("githubLink").title).toBe(I18N.DICT.es["topbar.github"]);
-    expect(document.querySelector('[data-i18n-html="welcome.new1"]').innerHTML).toBe(I18N.DICT.es["welcome.new1"]);
+    const title = document.querySelector('[data-i18n="welcome.new1Title"]');
+    expect(title.tagName).toBe("STRONG");
+    expect(title.textContent).toBe(I18N.DICT.es["welcome.new1Title"]);
+    expect(title.parentElement.textContent).toBe(
+      I18N.DICT.es["welcome.new1Title"] + I18N.DICT.es["welcome.new1Body"]
+    );
     expect(document.getElementById("chainSlot2").textContent).toBe(I18N.t("chain.empty", { n: 3 }));
     expect(document.documentElement.lang).toBe("es");
     expect(document.getElementById("langSelect").value).toBe("es");
