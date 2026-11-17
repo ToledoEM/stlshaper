@@ -59,6 +59,10 @@ if (!globalThis.localStorage) {
   });
 }
 
+// i18n.js is a classic script in the browser, loaded before main.js. Run it in
+// the test global so main.js finds globalThis.t, as it does in the page.
+new Function(fs.readFileSync(path.join(here, "../i18n.js"), "utf8"))();
+
 // FileSaver's saveAs is a global in the browser; export paths call it.
 globalThis.saveAs = () => {};
 if (typeof window !== "undefined") {

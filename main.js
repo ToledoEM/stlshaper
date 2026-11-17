@@ -487,8 +487,13 @@ function chainDescription(chain = deformationChain) {
   return filledChainStages(chain).map((stage) => stage.key).join("_");
 }
 
+// Translated display name; the registry label is the fallback when the
+// dictionary has no entry.
 function deformationLabel(key) {
-  return deformationRegistry.find((entry) => entry.key === key)?.label ?? key;
+  const entry = deformationRegistry.find((e) => e.key === key);
+  if (!entry) return key;
+  const text = tr(`deform.${key}`);
+  return text === `deform.${key}` ? entry.label : text;
 }
 
 // Redraws the slot buttons from chain state. Called after any change to a slot
@@ -499,8 +504,8 @@ function renderChainBar() {
     if (!button) continue;
     const stage = deformationChain[i];
     button.textContent = stage
-      ? `${i + 1}: ${deformationLabel(stage.key)}`
-      : `${i + 1}: empty`;
+      ? tr("chain.slot", { n: i + 1, name: deformationLabel(stage.key) })
+      : tr("chain.empty", { n: i + 1 });
     button.classList.toggle("active", i === activeChainSlot);
     button.classList.toggle("filled", Boolean(stage));
   }
@@ -545,7 +550,7 @@ function setActiveChainSlotFromPanel() {
   setChainSlot(activeChainSlot, currentModelKey);
   renderChainBar();
   statusDisplay.update(
-    `Slot ${activeChainSlot + 1} set to ${deformationLabel(currentModelKey)}.`,
+    msg("status.slotSet", { n: activeChainSlot + 1, name: msg(`deform.${currentModelKey}`) }),
     false
   );
 }
@@ -1164,12 +1169,50 @@ class WorkerPool {
 
 // --- UI Logic and Handlers ---
 
+// --- Localisation ---
+// i18n.js (a classic script loaded before this module) defines globalThis.t.
+// Without it every lookup falls back to the key, so a missing dictionary
+// degrades the text but never throws during boot.
+function tr(key, vars) {
+  return typeof globalThis.t === "function" ? globalThis.t(key, vars) : key;
+}
+
+// A message is kept as { key, vars } rather than a finished string so it can
+// be re-rendered when the language changes. A var may itself be a message.
+function msg(key, vars) {
+  return { key, vars };
+}
+
+function renderMsg(message) {
+  if (typeof message === "string") return message;
+  const vars = {};
+  for (const [name, value] of Object.entries(message.vars || {})) {
+    vars[name] = value && typeof value === "object" ? renderMsg(value) : value;
+  }
+  return tr(message.key, vars);
+}
+
+// The status line last shown, for re-rendering on a language switch.
+let lastStatus = null;
+
+function showStatus(message, isError = false) {
+  lastStatus = { message, isError };
+  if (!statusElement) return;
+  const text = renderMsg(message);
+  statusElement.textContent = isError ? tr("status.errorPrefix", { msg: text }) : text;
+}
+
+function readyMessage() {
+  return originalGeometry && originalGeometry.attributes && originalGeometry.attributes.position
+    ? msg("status.readyVerts", { n: originalGeometry.attributes.position.count })
+    : msg("status.ready");
+}
+
 const statusDisplay = {
-  update: (message, buttonState = true) => {
-    // buttonState: true disables the process button, false enables it
-    if (statusElement) {
-      statusElement.textContent = message;
-    }
+  // buttonState: true disables the process button, false enables it.
+  // transient: after 3 s the line falls back to the "Ready" message.
+  update: (message, buttonState = true, { transient = false } = {}) => {
+    showStatus(message);
     // Process button is enabled ONLY if a file is loaded AND the function is not currently running
     if (processBtn) processBtn.disabled = !(originalGeometry && !buttonState);
 
@@ -1186,23 +1229,12 @@ const statusDisplay = {
         originalGeometry && activeDeformedGeometry()
       );
 
-    if (message.includes("successfully")) {
-      setTimeout(() => {
-        if (
-          originalGeometry &&
-          originalGeometry.attributes &&
-          originalGeometry.attributes.position
-        ) {
-          if (statusElement)
-            statusElement.textContent = `Ready: ${originalGeometry.attributes.position.count} vertices loaded. Click 'Generate Deformation'.`;
-        } else {
-          if (statusElement) statusElement.textContent = "Ready to load STL.";
-        }
-      }, 3000);
+    if (transient) {
+      setTimeout(() => showStatus(readyMessage()), 3000);
     }
   },
   error: (message) => {
-    if (statusElement) statusElement.textContent = `Error: ${message}`;
+    showStatus(message, true);
     if (processBtn) processBtn.disabled = true;
     if (exportBtn) exportBtn.disabled = true;
   },
@@ -1218,15 +1250,35 @@ function getGeometryStats(geometry) {
   return { vertices: vertexCount, triangles };
 }
 
+// Arguments of the last stats render, so a language switch can redraw it.
+let lastStatsArgs = null;
+
+// Redraws the text main.js writes at runtime. i18n.js has already swapped the
+// static markup by the time its stlshaper:lang event fires.
+function refreshLanguage() {
+  if (lastStatus) showStatus(lastStatus.message, lastStatus.isError);
+  if (lastStatsArgs) updateStats(...lastStatsArgs);
+  else if (statsElement) statsElement.textContent = tr("stats.na");
+  renderChainBar();
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("stlshaper:lang", refreshLanguage);
+}
+
 function updateStats(original, deformed, timeMs = null) {
   if (!statsElement) return;
   const origStats = getGeometryStats(original);
   const defStats = getGeometryStats(deformed);
-  const timeText = timeMs != null ? `${timeMs.toFixed(0)} ms` : "N/A";
-  statsElement.textContent =
-    `Stats: Orig ${origStats.vertices} verts / ${origStats.triangles} tris | ` +
-    `Deformed ${defStats.vertices} verts / ${defStats.triangles} tris | ` +
-    `Time ${timeText}`;
+  lastStatsArgs = [original, deformed, timeMs];
+  const timeText = timeMs != null ? `${timeMs.toFixed(0)} ms` : tr("stats.none");
+  statsElement.textContent = tr("stats.full", {
+    ov: origStats.vertices,
+    ot: origStats.triangles,
+    dv: defStats.vertices,
+    dt: defStats.triangles,
+    time: timeText,
+  });
 }
 
 function init() {
@@ -1269,7 +1321,7 @@ function init() {
     console.error(
       "OrbitControls class not found. It is imported from the jsDelivr CDN in index.html and assigned to window.OrbitControls; check that import and your network connection.",
     );
-    statusDisplay.error("3D Controls Error. Check console/file path.");
+    statusDisplay.error(msg("status.controlsError"));
     controls = null;
   } else {
     controls = new OrbitControlsClass(camera, renderer.domElement);
@@ -1397,31 +1449,28 @@ function setupListeners() {
   document.getElementById("fileInput").addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (!file) {
-      statusDisplay.update("Ready to load STL.");
+      statusDisplay.update(msg("status.ready"));
       return;
     }
     originalFileName = file.name; // Store original file name
-    statusDisplay.update(`Loading file: ${file.name}...`, true);
+    statusDisplay.update(msg("status.loadingFile", { name: file.name }), true);
     const reader = new FileReader();
     reader.onload = () => {
       try {
         parseSTL(reader.result);
         // FIX: Only render the original model. Wait for button click for deformation.
         updateSceneMeshes();
-        statusDisplay.update(
-          `Model loaded successfully. Click 'Generate Deformation'.`,
-          false,
-        );
+        statusDisplay.update(msg("status.loaded"), false, { transient: true });
         // Export button remains disabled until deformation is performed
         exportBtn.disabled = true;
       } catch (error) {
         console.error("Error:", error);
-        statusDisplay.error(`File/Parse Error. Check console.`);
+        statusDisplay.error(msg("status.parseError"));
       }
     };
     reader.onerror = (e) => {
       console.error("FileReader error:", e);
-      statusDisplay.error(`Could not read file.`);
+      statusDisplay.error(msg("status.readError"));
     };
     reader.readAsArrayBuffer(file);
   });
@@ -1442,7 +1491,7 @@ function setupListeners() {
   // Process Button - PRIMARY TRIGGER FOR DEFORMATION
   processBtn.onclick = async () => {
     if (!originalGeometry) {
-      statusDisplay.error("Please load an STL first.");
+      statusDisplay.error(msg("status.needStl"));
       return;
     }
     try {
@@ -1450,7 +1499,7 @@ function setupListeners() {
       updateSceneMeshes();
     } catch (e) {
       console.error("Error:", e);
-      statusDisplay.error("Error generating deformation.");
+      statusDisplay.error(msg("status.genError"));
     }
   };
 
@@ -1475,7 +1524,7 @@ function setupListeners() {
   if (chainCalcBtn) {
     chainCalcBtn.onclick = async () => {
       if (!originalGeometry) {
-        statusDisplay.error("Please load an STL first.");
+        statusDisplay.error(msg("status.needStl"));
         return;
       }
       // The panel is the live editing buffer, so fold pending slider edits into
@@ -1498,7 +1547,7 @@ function setupListeners() {
       clearChain();
       renderChainBar();
       updateSceneMeshes();
-      statusDisplay.update("Chain cleared.", false);
+      statusDisplay.update(msg("status.chainCleared"), false);
     };
   }
 
@@ -1579,15 +1628,16 @@ function clearModelAndUI() {
   const fileInput = document.getElementById("fileInput");
   if (fileInput) fileInput.value = "";
   renderChainBar();
-  if (statusElement) statusElement.textContent = "Cleared. Ready to load STL.";
-  if (statsElement) statsElement.textContent = "Stats: N/A";
+  showStatus(msg("status.cleared"));
+  lastStatsArgs = null;
+  if (statsElement) statsElement.textContent = tr("stats.na");
 }
 
 function loadDefaultSTL() {
   const defaultPath = "JustBones617_0_resaved_1_NIH3D.stl";
   const loader = createSTLLoader();
   // Provide immediate feedback
-  statusDisplay.update(`Loading default model: ${defaultPath} ...`, true);
+  statusDisplay.update(msg("status.loadingDefault", { name: defaultPath }), true);
   loader.load(
     defaultPath,
     (geometry) => {
@@ -1617,13 +1667,13 @@ function loadDefaultSTL() {
         if (exportSettingsBtn) exportSettingsBtn.disabled = true;
       } catch (err) {
         console.error("Default STL post-load error:", err);
-        statusDisplay.error("Default model error. Check console.");
+        statusDisplay.error(msg("status.defaultError"));
       }
     },
     undefined,
     (err) => {
       console.warn("Default STL not found or failed to load:", err);
-      statusDisplay.update("Ready to load STL.", true);
+      statusDisplay.update(msg("status.ready"), true);
       // Keep buttons disabled until user loads a file
       if (processBtn) processBtn.disabled = true;
       if (exportBtn) exportBtn.disabled = true;
@@ -1730,10 +1780,7 @@ function setupPerspCanvas(updateHandler) {
 function setupParameterControls() {
   const updateHandler = (key) => {
     if (originalGeometry && currentModelKey === key) {
-      statusDisplay.update(
-        `Parameters updated. Click 'Generate Deformation' to apply.`,
-        false,
-      );
+      statusDisplay.update(msg("status.paramsUpdated"), false);
     }
   };
 
@@ -2406,7 +2453,7 @@ async function runDeformation(geometry, key, params) {
   // Set up progress callback
   workerPool.setProgressCallback((completed, total) => {
     const progress = Math.round((completed / total) * 100);
-    statusDisplay.update(`Processing ${key} deformation... ${progress}%`, true);
+    statusDisplay.update(msg("status.processingPct", { key, pct: progress }), true);
   });
 
   try {
@@ -2435,7 +2482,7 @@ async function runChain() {
 
   const stages = filledChainStages();
   if (stages.length === 0) {
-    statusDisplay.error("Chain is empty. Add a deformation to a slot first.");
+    statusDisplay.error(msg("status.chainEmpty"));
     return;
   }
 
@@ -2448,9 +2495,12 @@ async function runChain() {
     const overflow = findChainOverflow(deformationChain, startTriangles);
     if (overflow) {
       statusDisplay.error(
-        `Chain refused: slot ${overflow.slot + 1} (${overflow.key}) would reach ` +
-        `${overflow.triangles.toLocaleString()} triangles, over the ` +
-        `${MAX_CHAIN_TRIANGLES.toLocaleString()} limit. Reduce its steps.`
+        msg("status.chainRefused", {
+          n: overflow.slot + 1,
+          key: overflow.key,
+          tris: overflow.triangles.toLocaleString(),
+          max: MAX_CHAIN_TRIANGLES.toLocaleString(),
+        })
       );
       return;
     }
@@ -2460,7 +2510,7 @@ async function runChain() {
     for (let i = 0; i < stages.length; i++) {
       const stage = stages[i];
       statusDisplay.update(
-        `Stage ${i + 1}/${stages.length}: ${stage.key} deformation...`,
+        msg("status.stage", { i: i + 1, total: stages.length, key: stage.key }),
         true
       );
       geometry = await runDeformation(geometry, stage.key, cloneDeformParams(stage.params));
@@ -2469,12 +2519,12 @@ async function runChain() {
     chainResult = normalizeGeometry(geometry);
     const elapsed = performance.now() - startTime;
     updateStats(originalGeometry, chainResult, elapsed);
-    statusDisplay.update(`Generated ${chainDescription()} chain successfully.`, false);
+    statusDisplay.update(msg("status.chainDone", { name: chainDescription() }), false, { transient: true });
 
   } catch (error) {
     console.error('Chain error:', error);
     hideProgressBar();
-    statusDisplay.error('Error generating chain.');
+    statusDisplay.error(msg("status.chainError"));
   }
 }
 
@@ -2482,11 +2532,11 @@ async function generateCurrent() {
   if (!originalGeometry) return;
 
   try {
-    statusDisplay.update(`Processing ${currentModelKey} deformation...`, true);
+    statusDisplay.update(msg("status.processing", { key: currentModelKey }), true);
 
     const defEntry = deformationRegistry.find((entry) => entry.key === currentModelKey);
     if (!defEntry) {
-      statusDisplay.error("Unknown deformation type.");
+      statusDisplay.error(msg("status.unknownType"));
       return;
     }
 
@@ -2505,14 +2555,14 @@ async function generateCurrent() {
     const elapsed = performance.now() - startTime;
     updateStats(originalGeometry, result, elapsed);
 
-    statusDisplay.update(`Generated ${currentModelKey} deformation successfully.`, false);
+    statusDisplay.update(msg("status.generated", { key: currentModelKey }), false, { transient: true });
 
   } catch (error) {
     console.error('Deformation error:', error);
     // The progress bar only self-hides on reaching 100%, so a failure would
     // otherwise leave it stranded mid-fill.
     hideProgressBar();
-    statusDisplay.error('Error generating deformation.');
+    statusDisplay.error(msg("status.genError"));
   }
 }
 
@@ -2722,12 +2772,12 @@ function updateControlPointVisualization() {
 function exportSTL() {
   const activeModel = activeDeformedGeometry();
   if (!activeModel) {
-    statusDisplay.error("No deformed model generated to export.");
+    statusDisplay.error(msg("status.noExport"));
     return;
   }
   // A chain result is named for the whole recipe, not the selected radio.
   const exportName = chainResult ? chainDescription() : currentModelKey;
-  statusDisplay.update(`Exporting ${exportName} model...`, true);
+  statusDisplay.update(msg("status.exporting", { name: exportName }), true);
   try {
     const scene = new THREE.Scene();
     const mesh = new THREE.Mesh(activeModel);
@@ -2738,25 +2788,22 @@ function exportSTL() {
     const blob = new Blob([stlData], { type: "application/octet-stream" });
     saveAs(blob, `${exportName}_deformed.stl`);
 
-    statusDisplay.update(
-      `Export successful! ${exportName}_deformed.stl`,
-      false,
-    );
+    statusDisplay.update(msg("status.exported", { file: `${exportName}_deformed.stl` }), false);
   } catch (e) {
     console.error("STL Export Error:", e);
-    statusDisplay.error("Export failed. Check console.");
+    statusDisplay.error(msg("status.exportFailed"));
   }
 }
 
 function exportSettings() {
   const activeModel = activeDeformedGeometry();
   if (!activeModel) {
-    statusDisplay.error("No deformed model generated to export settings.");
+    statusDisplay.error(msg("status.noExportSettings"));
     return;
   }
 
   const settingsName = chainResult ? chainDescription() : currentModelKey;
-  statusDisplay.update(`Exporting ${settingsName} settings...`, true);
+  statusDisplay.update(msg("status.exportingSettings", { name: settingsName }), true);
 
   try {
     const settingsData = {
@@ -2793,13 +2840,10 @@ function exportSettings() {
     const blob = new Blob([jsonString], { type: "application/json" });
     saveAs(blob, `${settingsName}_settings.json`);
 
-    statusDisplay.update(
-      `Settings exported! ${settingsName}_settings.json`,
-      false,
-    );
+    statusDisplay.update(msg("status.settingsExported", { file: `${settingsName}_settings.json` }), false);
   } catch (e) {
     console.error("Settings Export Error:", e);
-    statusDisplay.error("Settings export failed. Check console.");
+    statusDisplay.error(msg("status.settingsExportFailed"));
   }
 }
 
@@ -2811,18 +2855,18 @@ function importSettingsFromFile(file) {
       applyImportedSettings(data);
     } catch (e) {
       console.error("Settings Import Error:", e);
-      statusDisplay.error("Invalid settings file.");
+      statusDisplay.error(msg("status.invalidSettingsFile"));
     }
   };
   reader.onerror = () => {
-    statusDisplay.error("Failed to read settings file.");
+    statusDisplay.error(msg("status.settingsReadFailed"));
   };
   reader.readAsText(file);
 }
 
 function applyImportedSettings(data) {
   if (!data || typeof data !== "object") {
-    statusDisplay.error("Invalid settings format.");
+    statusDisplay.error(msg("status.invalidSettings"));
     return;
   }
 
@@ -2837,7 +2881,7 @@ function applyImportedSettings(data) {
   const type = data.deformationType;
   const settings = data.settings;
   if (!type || !deformParams[type] || !settings) {
-    statusDisplay.error("Settings missing deformation type or values.");
+    statusDisplay.error(msg("status.settingsMissing"));
     return;
   }
 
@@ -2885,9 +2929,9 @@ function applyImportedSettings(data) {
   renderChainBar();
 
   const pointNote = restoredPoints
-    ? ` Restored ${restoredPoints} control points.`
+    ? msg("status.restoredPoints", { n: restoredPoints })
     : "";
-  statusDisplay.update(`Imported settings for ${type}.${pointNote} Click 'Generate Deformation' to apply.`, false);
+  statusDisplay.update(msg("status.importedSettings", { type, note: pointNote }), false);
 }
 
 // Loads a chain recipe into the slots. Stages beyond the slot count, and any
@@ -2899,7 +2943,7 @@ function applyImportedChain(data) {
     .slice(0, CHAIN_SLOTS);
 
   if (stages.length === 0) {
-    statusDisplay.error("Chain settings contain no known deformations.");
+    statusDisplay.error(msg("status.noKnownChain"));
     return;
   }
   if (stages.length < data.chain.length) {
@@ -2929,8 +2973,7 @@ function applyImportedChain(data) {
   selectChainSlot(0);
 
   statusDisplay.update(
-    `Imported ${stages.length}-stage chain: ${chainDescription()}. ` +
-    `Click 'Calculate Output' to apply.`,
+    msg("status.importedChain", { n: stages.length, name: chainDescription() }),
     false
   );
 }
@@ -3836,6 +3879,8 @@ export {
   clearModelAndUI,
   loadDefaultSTL,
   updateStats,
+  refreshLanguage,
+  deformationLabel,
   // Worker pool
   WorkerPool,
   // State accessors — the module's mutable globals are not directly importable
