@@ -43,7 +43,7 @@
                 margin: 0;
                 background: var(--bg-page);
                 color: var(--text-main);
-                font-family: Arial;
+                font-family: Arial, "Noto Sans", "PingFang SC", "Hiragino Sans", "Malgun Gothic", sans-serif;
                 position: relative;
                 height: 100vh;
                 overflow: hidden;
@@ -68,6 +68,7 @@
                 font-weight: bold;
                 font-size: 1em;
                 flex: 1;
+                min-width: 0;
                 color: var(--text-main);
             }
 
@@ -82,6 +83,7 @@
                 border: none;
                 border-radius: 3px;
                 cursor: pointer;
+                white-space: nowrap;
             }
 
             .topbar-btn:hover:not(:disabled) {
@@ -165,7 +167,10 @@
                 border-radius: 3px;
             }
 
-            .deform-controls span {
+            /* Value readouts. Label text sits in data-i18n spans and keeps the
+               plain label style; "Points:" was always styled as a readout. */
+            .deform-controls span:not([data-i18n]),
+            .deform-controls span[data-i18n="param.points"] {
                 float: right;
                 color: var(--accent);
                 font-weight: bold;
@@ -325,6 +330,23 @@
                 color: var(--accent);
             }
 
+            #langPicker {
+                padding: 4px 8px;
+            }
+
+            #langSelect {
+                background: transparent;
+                color: inherit;
+                border: none;
+                font-size: inherit;
+                cursor: pointer;
+            }
+
+            #langSelect option {
+                background: var(--bg-ui);
+                color: var(--text-main);
+            }
+
             #themeToggle {
                 padding: 6px 10px;
                 font-size: 1.1em;
@@ -444,15 +466,27 @@
     <body>
         <div id="topbar">
             <span id="topbar-title">STLShaper</span>
-            <button id="loadFileBtn" class="topbar-btn"><i class="bi bi-box-arrow-in-down"></i> Load STL</button>
+            <button id="loadFileBtn" class="topbar-btn"><i class="bi bi-box-arrow-in-down"></i> <span data-i18n="topbar.load">Load STL</span></button>
             <input type="file" id="fileInput" accept=".stl" style="display: none" />
-            <button id="exportBtn" class="topbar-btn" disabled><i class="bi bi-box-arrow-down"></i> Export STL</button>
-            <button id="exportSettingsBtn" class="topbar-btn" disabled><i class="bi bi-balloon"></i> Export Settings</button>
-            <button id="importSettingsBtn" class="topbar-btn"><i class="bi bi-filetype-json"></i> Import Settings</button>
+            <button id="exportBtn" class="topbar-btn" disabled><i class="bi bi-box-arrow-down"></i> <span data-i18n="topbar.export">Export STL</span></button>
+            <button id="exportSettingsBtn" class="topbar-btn" disabled><i class="bi bi-balloon"></i> <span data-i18n="topbar.exportSettings">Export Settings</span></button>
+            <button id="importSettingsBtn" class="topbar-btn"><i class="bi bi-filetype-json"></i> <span data-i18n="topbar.importSettings">Import Settings</span></button>
             <input type="file" id="importSettingsInput" accept=".json,application/json" style="display: none" />
-            <button id="docsBtn" class="topbar-btn"><i class="bi bi-file-richtext"></i> Documentation</button>
+            <button id="docsBtn" class="topbar-btn"><i class="bi bi-file-richtext"></i> <span data-i18n="topbar.docs">Documentation</span></button>
+            <label id="langPicker" class="topbar-btn" title="Language" data-i18n-title="topbar.language">
+                <i class="bi bi-translate"></i>
+                <select id="langSelect" aria-label="Language">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="zh">中文</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                </select>
+            </label>
             <button id="themeToggle" class="topbar-btn">☀️</button>
-            <a href="https://github.com/ToledoEM/stlshaper" target="_blank" id="githubLink" title="STLShaper on GitHub">
+            <a href="https://github.com/ToledoEM/stlshaper" target="_blank" id="githubLink" title="STLShaper on GitHub" data-i18n-title="topbar.github">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v 3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                 </svg>
@@ -460,7 +494,7 @@
         </div>
 
         <div id="ui">
-            <div id="status">Ready to load STL.</div>
+            <div id="status" data-i18n="status.ready">Ready to load STL.</div>
 
             <div id="progressContainer" style="display: none">
                 <div
@@ -486,78 +520,65 @@
             </div>
 
             <div>
-                <strong>Deformation Type:</strong>
+                <strong data-i18n="panel.deformType">Deformation Type:</strong>
                 <label
-                    ><input type="radio" name="type" value="noise" checked />
-                    Noise</label
+                    ><input type="radio" name="type" value="noise" checked /> <span data-i18n="deform.noise">Noise</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="sine" /> Sine
-                    Wave</label
+                    ><input type="radio" name="type" value="sine" /> <span data-i18n="deform.sine">Sine Wave</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="pixel" />
-                    Pixelate</label
+                    ><input type="radio" name="type" value="pixel" /> <span data-i18n="deform.pixel">Pixelate</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="idw" /> IDW
-                    Shepard</label
+                    ><input type="radio" name="type" value="idw" /> <span data-i18n="deform.idw">IDW Shepard</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="inflate" />
-                    Inflate</label
+                    ><input type="radio" name="type" value="inflate" /> <span data-i18n="deform.inflate">Inflate</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="twist" />
-                    Twist</label
+                    ><input type="radio" name="type" value="twist" /> <span data-i18n="deform.twist">Twist</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="bend" /> Bend</label
+                    ><input type="radio" name="type" value="bend" /> <span data-i18n="deform.bend">Bend</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="ripple" />
-                    Ripple</label
+                    ><input type="radio" name="type" value="ripple" /> <span data-i18n="deform.ripple">Ripple</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="warp" /> Warp</label
+                    ><input type="radio" name="type" value="warp" /> <span data-i18n="deform.warp">Warp</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="hyper" /> Hyperbolic
-                    Stretch</label
+                    ><input type="radio" name="type" value="hyper" /> <span data-i18n="deform.hyper">Hyperbolic Stretch</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="tessellate" />
-                    Tessellate</label
+                    ><input type="radio" name="type" value="tessellate" /> <span data-i18n="deform.tessellate">Tessellate</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="boundary" />
-                    Boundary Disruption</label
+                    ><input type="radio" name="type" value="boundary" /> <span data-i18n="deform.boundary">Boundary Disruption</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="menger" /> Menger
-                    Sponge</label
+                    ><input type="radio" name="type" value="menger" /> <span data-i18n="deform.menger">Menger Sponge</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="spherize" />
-                    Spherize</label
+                    ><input type="radio" name="type" value="spherize" /> <span data-i18n="deform.spherize">Spherize</span></label
                 >
                 <label
-                    ><input type="radio" name="type" value="persp" />
-                    Perspective Distortion</label
+                    ><input type="radio" name="type" value="persp" /> <span data-i18n="deform.persp">Perspective Distortion</span></label
                 >
             </div>
 
             <div id="noiseControls" class="deform-controls">
-                <strong>Noise Settings:</strong>
+                <strong data-i18n="settings.noise">Noise Settings:</strong>
                 <label>
-                    Type:
+                    <span data-i18n="param.type">Type:</span>
                     <select id="noiseType">
-                        <option value="white">White Noise</option>
-                        <option value="perlin">Perlin</option>
+                        <option value="white" data-i18n="opt.whiteNoise">White Noise</option>
+                        <option value="perlin" data-i18n="opt.perlin">Perlin</option>
                     </select>
                 </label>
                 <label>
-                    Seed: <span id="noiseSeedVal">0</span>
+                    <span data-i18n="param.seed">Seed:</span> <span id="noiseSeedVal">0</span>
                     <input
                         type="number"
                         id="noiseSeed"
@@ -568,7 +589,7 @@
                     />
                 </label>
                 <label>
-                    Intensity: <span id="noiseIntensityVal">1.5</span>
+                    <span data-i18n="param.intensity">Intensity:</span> <span id="noiseIntensityVal">1.5</span>
                     <input
                         type="range"
                         id="noiseIntensity"
@@ -579,7 +600,7 @@
                     />
                 </label>
                 <label>
-                    Scale: <span id="noiseScaleVal">0.02</span>
+                    <span data-i18n="param.scale">Scale:</span> <span id="noiseScaleVal">0.02</span>
                     <input
                         type="range"
                         id="noiseScale"
@@ -590,15 +611,15 @@
                     />
                 </label>
                 <label>
-                    Axis:
+                    <span data-i18n="param.axis">Axis:</span>
                     <select id="noiseAxis">
-                        <option value="all">All Axes</option>
-                        <option value="x">X Only</option>
-                        <option value="y">Y Only</option>
-                        <option value="z">Z Only</option>
-                        <option value="xy">X & Y</option>
-                        <option value="xz">X & Z</option>
-                        <option value="yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
                     </select>
                 </label>
             </div>
@@ -608,9 +629,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Sine Wave Settings:</strong>
+                <strong data-i18n="settings.sine">Sine Wave Settings:</strong>
                 <label>
-                    Amplitude: <span id="sineAmpVal">15</span>
+                    <span data-i18n="param.amplitude">Amplitude:</span> <span id="sineAmpVal">15</span>
                     <input
                         type="range"
                         id="sineAmp"
@@ -621,7 +642,7 @@
                     />
                 </label>
                 <label>
-                    Frequency: <span id="sineFreqVal">0.05</span>
+                    <span data-i18n="param.frequency">Frequency:</span> <span id="sineFreqVal">0.05</span>
                     <input
                         type="range"
                         id="sineFreq"
@@ -632,23 +653,23 @@
                     />
                 </label>
                 <label>
-                    Driver Axis (input):
+                    <span data-i18n="param.driverAxis">Driver Axis (input):</span>
                     <select id="sineDriverAxis">
-                        <option value="x">X Axis</option>
-                        <option value="y">Y Axis</option>
-                        <option value="z">Z Axis</option>
+                        <option value="x" data-i18n="opt.xAxis">X Axis</option>
+                        <option value="y" data-i18n="opt.yAxis">Y Axis</option>
+                        <option value="z" data-i18n="opt.zAxis">Z Axis</option>
                     </select>
                 </label>
                 <label>
-                    Displacement Axis (output):
+                    <span data-i18n="param.dispAxis">Displacement Axis (output):</span>
                     <select id="sineDispAxis">
-                        <option value="x">X Only</option>
-                        <option value="y">Y Only</option>
-                        <option value="z">Z Only</option>
-                        <option value="xy">X & Y</option>
-                        <option value="xz">X & Z</option>
-                        <option value="yz">Y & Z</option>
-                        <option value="all">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -658,9 +679,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Pixelate Settings:</strong>
+                <strong data-i18n="settings.pixel">Pixelate Settings:</strong>
                 <label>
-                    Voxel Size: <span id="pixelSizeVal">5</span>
+                    <span data-i18n="param.voxelSize">Voxel Size:</span> <span id="pixelSizeVal">5</span>
                     <input
                         type="range"
                         id="pixelSize"
@@ -671,23 +692,23 @@
                     />
                 </label>
                 <label>
-                    Axis Lock:
+                    <span data-i18n="param.axisLock">Axis Lock:</span>
                     <select id="pixelAxis">
-                        <option value="all">All Axes</option>
-                        <option value="x">X Only</option>
-                        <option value="y">Y Only</option>
-                        <option value="z">Z Only</option>
-                        <option value="xy">X & Y</option>
-                        <option value="xz">X & Z</option>
-                        <option value="yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
                     </select>
                 </label>
             </div>
 
             <div id="idwControls" class="deform-controls" style="display: none">
-                <strong>IDW Shepard Settings:</strong>
+                <strong data-i18n="settings.idw">IDW Shepard Settings:</strong>
                 <label>
-                    Number of Points: <span id="idwNumPointsVal">8</span>
+                    <span data-i18n="param.numPoints">Number of Points:</span> <span id="idwNumPointsVal">8</span>
                     <input
                         type="range"
                         id="idwNumPoints"
@@ -698,7 +719,7 @@
                     />
                 </label>
                 <label>
-                    Seed: <span id="idwSeedVal">0</span>
+                    <span data-i18n="param.seed">Seed:</span> <span id="idwSeedVal">0</span>
                     <input
                         type="number"
                         id="idwSeed"
@@ -709,7 +730,7 @@
                     />
                 </label>
                 <label>
-                    Weight: <span id="idwWeightVal">2.0</span>
+                    <span data-i18n="param.weight">Weight:</span> <span id="idwWeightVal">2.0</span>
                     <input
                         type="range"
                         id="idwWeight"
@@ -720,7 +741,7 @@
                     />
                 </label>
                 <label>
-                    Power: <span id="idwPowerVal">2.0</span>
+                    <span data-i18n="param.power">Power:</span> <span id="idwPowerVal">2.0</span>
                     <input
                         type="range"
                         id="idwPower"
@@ -731,7 +752,7 @@
                     />
                 </label>
                 <label>
-                    Global Scale: <span id="idwScaleVal">2.0</span>
+                    <span data-i18n="param.globalScale">Global Scale:</span> <span id="idwScaleVal">2.0</span>
                     <input
                         type="range"
                         id="idwScale"
@@ -742,7 +763,7 @@
                     />
                 </label>
                 <label>
-                    Sampling Rays: <span id="idwRaysVal">6</span>
+                    <span data-i18n="param.samplingRays">Sampling Rays:</span> <span id="idwRaysVal">6</span>
                     <input
                         type="range"
                         id="idwRays"
@@ -753,11 +774,11 @@
                     />
                 </label>
                 <label>
-                    Manual Control Points:
+                    <span data-i18n="param.manualPoints">Manual Control Points:</span>
                     <input type="checkbox" id="idwManualPoints" />
                 </label>
                 <label>
-                    Points (x,y,z per line):
+                    <span data-i18n="param.pointsInput">Points (x,y,z per line):</span>
                     <textarea
                         id="idwPointsInput"
                         rows="4"
@@ -777,9 +798,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Inflate Settings:</strong>
+                <strong data-i18n="settings.inflate">Inflate Settings:</strong>
                 <label>
-                    Amount: <span id="inflateAmountVal">0.6</span>
+                    <span data-i18n="param.amount">Amount:</span> <span id="inflateAmountVal">0.6</span>
                     <input
                         type="range"
                         id="inflateAmount"
@@ -796,9 +817,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Twist Settings:</strong>
+                <strong data-i18n="settings.twist">Twist Settings:</strong>
                 <label>
-                    Angle (deg): <span id="twistAngleVal">180</span>
+                    <span data-i18n="param.angleDeg">Angle (deg):</span> <span id="twistAngleVal">180</span>
                     <input
                         type="range"
                         id="twistAngle"
@@ -809,15 +830,15 @@
                     />
                 </label>
                 <label>
-                    Axis:
+                    <span data-i18n="param.axis">Axis:</span>
                     <select id="twistAxis">
-                        <option value="x">X Only</option>
-                        <option value="y" selected>Y Only</option>
-                        <option value="z">Z Only</option>
-                        <option value="xy">X & Y</option>
-                        <option value="xz">X & Z</option>
-                        <option value="yz">Y & Z</option>
-                        <option value="all">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" selected data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -827,9 +848,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Bend Settings:</strong>
+                <strong data-i18n="settings.bend">Bend Settings:</strong>
                 <label>
-                    Strength: <span id="bendStrengthVal">0.8</span>
+                    <span data-i18n="param.strength">Strength:</span> <span id="bendStrengthVal">0.8</span>
                     <input
                         type="range"
                         id="bendStrength"
@@ -840,15 +861,15 @@
                     />
                 </label>
                 <label>
-                    Axis:
+                    <span data-i18n="param.axis">Axis:</span>
                     <select id="bendAxis">
-                        <option value="x">X Only</option>
-                        <option value="y" selected>Y Only</option>
-                        <option value="z">Z Only</option>
-                        <option value="xy">X & Y</option>
-                        <option value="xz">X & Z</option>
-                        <option value="yz">Y & Z</option>
-                        <option value="all">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" selected data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -858,9 +879,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Ripple Settings:</strong>
+                <strong data-i18n="settings.ripple">Ripple Settings:</strong>
                 <label>
-                    Amplitude: <span id="rippleAmpVal">4</span>
+                    <span data-i18n="param.amplitude">Amplitude:</span> <span id="rippleAmpVal">4</span>
                     <input
                         type="range"
                         id="rippleAmp"
@@ -871,7 +892,7 @@
                     />
                 </label>
                 <label>
-                    Frequency: <span id="rippleFreqVal">0.3</span>
+                    <span data-i18n="param.frequency">Frequency:</span> <span id="rippleFreqVal">0.3</span>
                     <input
                         type="range"
                         id="rippleFreq"
@@ -882,15 +903,15 @@
                     />
                 </label>
                 <label>
-                    Axis:
+                    <span data-i18n="param.axis">Axis:</span>
                     <select id="rippleAxis">
-                        <option value="x">X Only</option>
-                        <option value="y" selected>Y Only</option>
-                        <option value="z">Z Only</option>
-                        <option value="xy">X & Y</option>
-                        <option value="xz">X & Z</option>
-                        <option value="yz">Y & Z</option>
-                        <option value="all">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" selected data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -900,9 +921,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Warp Settings:</strong>
+                <strong data-i18n="settings.warp">Warp Settings:</strong>
                 <label>
-                    Strength: <span id="warpStrengthVal">1.0</span>
+                    <span data-i18n="param.strength">Strength:</span> <span id="warpStrengthVal">1.0</span>
                     <input
                         type="range"
                         id="warpStrength"
@@ -913,7 +934,7 @@
                     />
                 </label>
                 <label>
-                    Scale: <span id="warpScaleVal">0.2</span>
+                    <span data-i18n="param.scale">Scale:</span> <span id="warpScaleVal">0.2</span>
                     <input
                         type="range"
                         id="warpScale"
@@ -930,9 +951,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Hyperbolic Stretch Settings:</strong>
+                <strong data-i18n="settings.hyper">Hyperbolic Stretch Settings:</strong>
                 <label>
-                    Amount: <span id="hyperAmountVal">0.6</span>
+                    <span data-i18n="param.amount">Amount:</span> <span id="hyperAmountVal">0.6</span>
                     <input
                         type="range"
                         id="hyperAmount"
@@ -943,15 +964,15 @@
                     />
                 </label>
                 <label>
-                    Axis:
+                    <span data-i18n="param.axis">Axis:</span>
                     <select id="hyperAxis">
-                        <option value="x">X Only</option>
-                        <option value="y" selected>Y Only</option>
-                        <option value="z">Z Only</option>
-                        <option value="xy">X & Y</option>
-                        <option value="xz">X & Z</option>
-                        <option value="yz">Y & Z</option>
-                        <option value="all">All Axes</option>
+                        <option value="x" data-i18n="opt.xOnly">X Only</option>
+                        <option value="y" selected data-i18n="opt.yOnly">Y Only</option>
+                        <option value="z" data-i18n="opt.zOnly">Z Only</option>
+                        <option value="xy" data-i18n="opt.xy">X & Y</option>
+                        <option value="xz" data-i18n="opt.xz">X & Z</option>
+                        <option value="yz" data-i18n="opt.yz">Y & Z</option>
+                        <option value="all" data-i18n="opt.allAxes">All Axes</option>
                     </select>
                 </label>
             </div>
@@ -961,9 +982,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Tessellation Settings:</strong>
+                <strong data-i18n="settings.tessellate">Tessellation Settings:</strong>
                 <label>
-                    Subdivisions: <span id="tessellateStepsVal">1</span>
+                    <span data-i18n="param.subdivisions">Subdivisions:</span> <span id="tessellateStepsVal">1</span>
                     <input
                         type="range"
                         id="tessellateSteps"
@@ -980,9 +1001,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Boundary Disruption Settings:</strong>
+                <strong data-i18n="settings.boundary">Boundary Disruption Settings:</strong>
                 <label>
-                    Threshold: <span id="boundaryThresholdVal">0.08</span>
+                    <span data-i18n="param.threshold">Threshold:</span> <span id="boundaryThresholdVal">0.08</span>
                     <input
                         type="range"
                         id="boundaryThreshold"
@@ -993,7 +1014,7 @@
                     />
                 </label>
                 <label>
-                    Jitter: <span id="boundaryJitterVal">2</span>
+                    <span data-i18n="param.jitter">Jitter:</span> <span id="boundaryJitterVal">2</span>
                     <input
                         type="range"
                         id="boundaryJitter"
@@ -1010,9 +1031,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Menger Sponge Settings:</strong>
+                <strong data-i18n="settings.menger">Menger Sponge Settings:</strong>
                 <label>
-                    Iterations: <span id="mengerIterationsVal">1</span>
+                    <span data-i18n="param.iterations">Iterations:</span> <span id="mengerIterationsVal">1</span>
                     <input
                         type="range"
                         id="mengerIterations"
@@ -1023,7 +1044,7 @@
                     />
                 </label>
                 <label>
-                    Keep Ratio: <span id="mengerKeepVal">0.7</span>
+                    <span data-i18n="param.keepRatio">Keep Ratio:</span> <span id="mengerKeepVal">0.7</span>
                     <input
                         type="range"
                         id="mengerKeep"
@@ -1040,9 +1061,9 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Spherize Settings:</strong>
+                <strong data-i18n="settings.spherize">Spherize Settings:</strong>
                 <label>
-                    Factor: <span id="spherizeFactorVal">0.5</span>
+                    <span data-i18n="param.factor">Factor:</span> <span id="spherizeFactorVal">0.5</span>
                     <input
                         type="range"
                         id="spherizeFactor"
@@ -1053,7 +1074,7 @@
                     />
                 </label>
                 <label>
-                    Radius (0=auto): <span id="spherizeRadiusVal">0</span>
+                    <span data-i18n="param.radiusAuto">Radius (0=auto):</span> <span id="spherizeRadiusVal">0</span>
                     <input
                         type="range"
                         id="spherizeRadius"
@@ -1070,7 +1091,7 @@
                 class="deform-controls"
                 style="display: none"
             >
-                <strong>Perspective Distortion Settings:</strong>
+                <strong data-i18n="settings.persp">Perspective Distortion Settings:</strong>
                 <label
                     style="
                         display: flex;
@@ -1079,7 +1100,7 @@
                         flex-wrap: wrap;
                     "
                 >
-                    <span>Points:</span>
+                    <span data-i18n="param.points">Points:</span>
                     <label
                         style="
                             display: inline-flex;
@@ -1089,7 +1110,7 @@
                         "
                     >
                         <input type="radio" name="vpMode" value="1" checked />
-                        1-point
+                        <span data-i18n="param.onePoint">1-point</span>
                     </label>
                     <label
                         style="
@@ -1099,7 +1120,7 @@
                             font-size: 0.85em;
                         "
                     >
-                        <input type="radio" name="vpMode" value="2" /> 2-point
+                        <input type="radio" name="vpMode" value="2" /> <span data-i18n="param.twoPoint">2-point</span>
                     </label>
                 </label>
                 <div
@@ -1122,15 +1143,15 @@
                     ></canvas>
                 </div>
                 <label>
-                    Plane:
+                    <span data-i18n="param.plane">Plane:</span>
                     <select id="perspPlane">
-                        <option value="XY" selected>XY (top view)</option>
-                        <option value="XZ">XZ (front view)</option>
-                        <option value="YZ">YZ (side view)</option>
+                        <option value="XY" selected data-i18n="opt.xyTop">XY (top view)</option>
+                        <option value="XZ" data-i18n="opt.xzFront">XZ (front view)</option>
+                        <option value="YZ" data-i18n="opt.yzSide">YZ (side view)</option>
                     </select>
                 </label>
                 <label>
-                    Strength: <span id="perspStrengthVal">0.5</span>
+                    <span data-i18n="param.strength">Strength:</span> <span id="perspStrengthVal">0.5</span>
                     <input
                         type="range"
                         id="perspStrength"
@@ -1141,18 +1162,18 @@
                     />
                 </label>
                 <label>
-                    Falloff:
+                    <span data-i18n="param.falloff">Falloff:</span>
                     <select id="perspMode">
-                        <option value="linear" selected>Linear</option>
-                        <option value="exponential">Exponential</option>
+                        <option value="linear" selected data-i18n="opt.linear">Linear</option>
+                        <option value="exponential" data-i18n="opt.exponential">Exponential</option>
                     </select>
                 </label>
             </div>
 
             <div class="deform-controls">
-                <strong>Preprocess:</strong>
+                <strong data-i18n="panel.preprocess">Preprocess:</strong>
                 <label>
-                    Decimate (% kept): <span id="decimateVal">100</span>
+                    <span data-i18n="param.decimate">Decimate (% kept):</span> <span id="decimateVal">100</span>
                     <input
                         type="range"
                         id="decimate"
@@ -1163,7 +1184,7 @@
                     />
                 </label>
                 <label>
-                    Vertex Merge Epsilon: <span id="mergeVal">0.0</span>
+                    <span data-i18n="param.mergeEps">Vertex Merge Epsilon:</span> <span id="mergeVal">0.0</span>
                     <input
                         type="range"
                         id="mergeEpsilon"
@@ -1177,89 +1198,84 @@
 
             <div style="display: flex; gap: 8px; align-items: center">
                 <button id="processBtn" disabled style="flex: 1">
-                    Generate Deformation
+                    <span data-i18n="btn.generate">Generate Deformation</span>
                 </button>
-                <button id="clearBtn" style="flex: 0 0 auto">Clear</button>
+                <button id="clearBtn" style="flex: 0 0 auto"><span data-i18n="btn.clear">Clear</span></button>
             </div>
 
             <div>
-                <strong>View Mode:</strong>
+                <strong data-i18n="panel.viewMode">View Mode:</strong>
                 <label
-                    ><input type="checkbox" id="toggleView" checked /> Show
-                    Deformed Model</label
+                    ><input type="checkbox" id="toggleView" checked /> <span data-i18n="view.showDeformed">Show Deformed Model</span></label
                 >
                 <label>
-                    Render Mode:
+                    <span data-i18n="view.renderMode">Render Mode:</span>
                     <select id="renderMode">
-                        <option value="wireframe">Wireframe</option>
-                        <option value="solid" selected>Solid 3D</option>
-                        <option value="both">Wireframe + Solid</option>
+                        <option value="wireframe" data-i18n="opt.wireframe">Wireframe</option>
+                        <option value="solid" selected data-i18n="opt.solid">Solid 3D</option>
+                        <option value="both" data-i18n="opt.both">Wireframe + Solid</option>
                     </select>
                 </label>
                 <button id="resetViewBtn" style="margin-top: 6px">
-                    Reset View
+                    <span data-i18n="btn.resetView">Reset View</span>
                 </button>
             </div>
 
-            <div id="stats">Stats: N/A</div>
+            <div id="stats" data-i18n="stats.na">Stats: N/A</div>
         </div>
 
         <div id="container"></div>
 
         <div id="chainBar">
-            <span id="chainLabel">Chain:</span>
-            <button type="button" class="chain-slot" id="chainSlot0" data-slot="0">
+            <span id="chainLabel" data-i18n="chain.label">Chain:</span>
+            <button type="button" class="chain-slot" id="chainSlot0" data-slot="0" data-i18n="chain.empty" data-i18n-vars='{"n":1}'>
                 1: empty
             </button>
-            <button type="button" class="chain-slot" id="chainSlot1" data-slot="1">
+            <button type="button" class="chain-slot" id="chainSlot1" data-slot="1" data-i18n="chain.empty" data-i18n-vars='{"n":2}'>
                 2: empty
             </button>
-            <button type="button" class="chain-slot" id="chainSlot2" data-slot="2">
+            <button type="button" class="chain-slot" id="chainSlot2" data-slot="2" data-i18n="chain.empty" data-i18n-vars='{"n":3}'>
                 3: empty
             </button>
-            <button type="button" id="chainSetBtn" title="Put the currently selected deformation into the active slot">
-                Set Slot
-            </button>
-            <button type="button" id="chainClearSlotBtn" title="Empty the active slot">
-                Clear Slot
-            </button>
-            <button type="button" id="chainCalcBtn" disabled>Calculate Output</button>
-            <button type="button" id="chainClearBtn">Clear Chain</button>
+            <button type="button" id="chainSetBtn" title="Put the currently selected deformation into the active slot" data-i18n-title="chain.setTitle" data-i18n="chain.set">Set Slot</button>
+            <button type="button" id="chainClearSlotBtn" title="Empty the active slot" data-i18n-title="chain.clearSlotTitle" data-i18n="chain.clearSlot">Clear Slot</button>
+            <button type="button" id="chainCalcBtn" disabled data-i18n="chain.calc">Calculate Output</button>
+            <button type="button" id="chainClearBtn" data-i18n="chain.clear">Clear Chain</button>
         </div>
 
         <div id="scale-prompt">
-            <span>Model is very large — scale down for better viewing?</span>
+            <span data-i18n="scale.prompt">Model is very large — scale down for better viewing?</span>
             <button onclick="applyModelScale(0.1)">10%</button>
             <button onclick="applyModelScale(0.2)">20%</button>
             <button onclick="applyModelScale(0.5)">50%</button>
-            <button onclick="applyModelScale(null)">Auto</button>
+            <button onclick="applyModelScale(null)" data-i18n="scale.auto">Auto</button>
         </div>
 
         <div id="welcomeOverlay">
             <div id="welcomeModal">
                 <button id="welcomeClose">✕</button>
-                <h2>Welcome to STLShaper</h2>
-                <p>Transform any STL directly in your browser — no install, no cloud.</p>
+                <h2 data-i18n="welcome.title">Welcome to STLShaper</h2>
+                <p data-i18n="welcome.lead">Transform any STL directly in your browser — no install, no cloud.</p>
 
-                <h3 class="modal-section">QUICK START</h3>
+                <h3 class="modal-section" data-i18n="welcome.quickStart">QUICK START</h3>
                 <ol>
-                    <li>Load an STL file using the file picker.</li>
-                    <li>Choose a deformation type from the panel.</li>
-                    <li>Adjust parameters and click Generate Deformation.</li>
-                    <li>Export your result as STL.</li>
+                    <li data-i18n="welcome.step1">Load an STL file using the file picker.</li>
+                    <li data-i18n="welcome.step2">Choose a deformation type from the panel.</li>
+                    <li data-i18n="welcome.step3">Adjust parameters and click Generate Deformation.</li>
+                    <li data-i18n="welcome.step4">Export your result as STL.</li>
                 </ol>
 
-                <h3 class="modal-section">NEW IN 0.9.0 — September 2026</h3>
+                <h3 class="modal-section" data-i18n="welcome.newIn">NEW IN 0.9.0 — September 2026</h3>
                 <ul>
-                    <li><strong>Deformation chaining</strong> — Compose up to three deformations in the bar along the bottom</li>
-                    <li><strong>Perlin noise</strong> — Coherent noise field, plus a seed control</li>
-                    <li><strong>Reproducible IDW recipes</strong> — Settings exports record the control points actually used</li>
-                    <li><strong>Test suite</strong> — 559 tests guarding against regressions</li>
+                    <li><strong data-i18n="welcome.new1Title">Deformation chaining</strong><span data-i18n="welcome.new1Body"> — Compose up to three deformations in the bar along the bottom</span></li>
+                    <li><strong data-i18n="welcome.new2Title">Perlin noise</strong><span data-i18n="welcome.new2Body"> — Coherent noise field, plus a seed control</span></li>
+                    <li><strong data-i18n="welcome.new3Title">Reproducible IDW recipes</strong><span data-i18n="welcome.new3Body"> — Settings exports record the control points actually used</span></li>
+                    <li><strong data-i18n="welcome.new4Title">Test suite</strong><span data-i18n="welcome.new4Body"> — 559 tests guarding against regressions</span></li>
                 </ul>
 
                 <div id="welcomeFooter">
-                    <label><input type="checkbox" id="dontShowAgain" /> Don't show this again</label>
-                    <button id="welcomeGotIt">Got it</button>
+                    <label><input type="checkbox" id="dontShowAgain" /> <span data-i18n="welcome.dontShow">Don't show this again</span></label>
+                    <button id="welcomeGotIt" data-i18n="welcome.gotIt">Got it</button>
                 </div>
             </div>
         </div>
@@ -1290,7 +1306,11 @@
             await loadScript("main.js", "module");
         </script>
 
+        <script src="i18n.js"></script>
         <script>
+            // Language dropdown; translates the page if a language was saved.
+            if (window.STLI18N) window.STLI18N.mount();
+
             // Load STL file from banner button
             document.getElementById('loadFileBtn').addEventListener('click', () => {
                 document.getElementById('fileInput').click();

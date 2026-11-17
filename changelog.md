@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+### Added
+- Interface languages: English, Spanish, Simplified Chinese, German, French, Japanese and Korean. A dropdown with a translate icon sits in the top bar, left of the theme toggle. English is the default; the choice is saved in the browser and restored on the next visit.
+- Everything the interface shows is translated: top bar, deformation panel, sliders and options, chain bar, scale prompt, welcome dialog, and the status and stats messages. Switching language also redraws the current status line, stats and chain slots.
+- Technical terms (deformation and parameter names) are translated only where the term was found in an established localized source, mainly Blender's official translations and manual, and Wikipedia. Terms with no source, or an ambiguous one, stay in English, as do proper names such as IDW Shepard, Perlin and Menger Sponge. `i18n.js` lists the sources and the terms kept in English.
+- `i18n.js`: the translation dictionaries and the code that applies them. It needs no library and makes no network requests.
+- 33 tests: every language has the same keys and placeholders as English, every key used in `index.html` exists, and switching language translates both the markup and the runtime messages.
+
+### Fixed
+- Returning to "Ready" three seconds after a successful load or deformation depended on the English word "successfully" in the message. It now uses an explicit flag, so it works in any language.
+
 ## [0.9.1] - 2026-11-01
 ### Security
 - Upgraded the test tooling, Vitest and `@vitest/coverage-v8`, from 2.1.9 to 5.0.5, clearing 17 Dependabot alerts (3 critical). This updates Vite from 5.4.21 to 8.3.5 and source-map-js from 1.2.1 to 1.2.2, and removes tinypool, esbuild, minimatch and brace-expansion from the dependency tree. All of these are development dependencies used only to run the tests. None of them is loaded by the app, which still runs entirely in the browser on local files.
